@@ -34,17 +34,17 @@
 #define WHITE   0xFFFF
 
 //Stepper Motor Connections
-#define pulseA  2
-#define pulseB  3
-#define pulseC  4
-#define pulseD  4
-#define dirA    5
-#define dirB    6
-#define dirC    7
-#define dirD    7
+#define pulseA  32
+#define pulseB  33
+#define pulseC  34
+#define pulseD  35
+#define dirA    36
+#define dirB    37
+#define dirC    38
+#define dirD    39
 
 //Stepper Motor Enabling
-#define ENABLE_MOTORS 8
+#define ENABLE_MOTORS 40
 
 //Stepper Motor Settings
   /*LOW LOW LOW   - Full Step
@@ -84,25 +84,6 @@ int TS_LEFT = 70;
 int TS_RIGHT = 940;
 int TS_TOP = 130;
 int TS_BOT = 900;
-
-/////FIRMWARE VARIABLES
-boolean loadBtnFlag = false;
-boolean newBtnFlag = false;
-boolean editBtnFlag = false;
-boolean setBtnFlag = false;
-boolean tClampBtnFlag = false;
-boolean bClampBtnFlag = false;
-boolean homeBtnFlag = false;
-boolean prevBtnFlag = false;
-boolean nextBtnFlag = false;
-boolean togMotBtnFlag = false;
-boolean upTBtnFlag = false;
-boolean downTBtnFlag = false;
-boolean upBBtnFlag = false;
-boolean downBBtnFlag = false;
-boolean inBtnFlag = false;
-boolean outBtnFlag = false;
-boolean amountBtnFlag = false;
 
 /////MACHINE SETTINGS
 //Homing Offsets
@@ -173,12 +154,53 @@ boolean tClampEngaged = false;
 boolean bClampEngaged = false;
 
 /////PROFILE VALUES
-String profile = "";
-int tClampDist = 0;
-int bClampDist = 0;
-int hDist = 0;
+String profile = new String("     ");
+int numProfSteps = 1;
+int tClampDist1 = 0;
+int bClampDist1 = 0;
+int hDist1 = 0;
+int hDist2 = 0;
+int hDist3 = 0;
+  
+/////GUI Relations
+int activeScreen = 0; //0 = home screen, 
 
-/////GUI Button Sizes
+/////BUTTON STATUS VARIABLES
+boolean loadBtnFlag = false;
+boolean newBtnFlag = false;
+boolean editBtnFlag = false;
+boolean setBtnFlag = false;
+boolean tClampBtnFlag = false;
+boolean bClampBtnFlag = false;
+boolean homeBtnFlag = false;
+boolean prevBtnFlag = false;
+boolean nextBtnFlag = false;
+boolean togMotBtnFlag = false;
+boolean upTBtnFlag = false;
+boolean downTBtnFlag = false;
+boolean upBBtnFlag = false;
+boolean downBBtnFlag = false;
+boolean inBtnFlag = false;
+boolean outBtnFlag = false;
+boolean amountBtnFlag = false;
+
+boolean delBtnFlag = false;
+boolean lettBtnFlag = false;
+boolean 1BtnFlag = false;
+boolean 2BtnFlag = false;
+boolean 3BtnFlag = false;
+boolean 4BtnFlag = false;
+boolean 5BtnFlag = false;
+boolean 6BtnFlag = false;
+boolean 7BtnFlag = false;
+boolean 8BtnFlag = false;
+boolean 9BtnFlag = false;
+boolean backBtnFlag = false;
+boolean decimalBtnFlag = false;
+boolean okBtnFlag = false;
+
+/*--------------Home Screen------------*/
+//Button Sizes
 int xPadding = 5;
 int yPadding = 5;
 
@@ -204,8 +226,8 @@ int manualBtnX = 40;
 int manualBtnY = 40;
 
 float moveAmount = 0.1;
-  
-/////GUI Relations
+
+//Button Positioning
 int load_Btn_Start_x = xPadding;
 int load_Btn_Start_y = yPadding;
 int load_Btn_Stop_x = load_Btn_Start_x + configBtnX;
@@ -290,7 +312,84 @@ int amount_Btn_Start_x = mEN_Btn_Start_x - (xPadding * 2) - manualBtnX;
 int amount_Btn_Start_y = out_Btn_Start_y;
 int amount_Btn_Stop_x = amount_Btn_Start_x + manualBtnX;
 int amount_Btn_Stop_y = amount_Btn_Start_y + manualBtnY;
+/*------------------------------*/
 
+/*--------Data Entry Screen-----------*/
+//Button Sizes
+int numBtnX = 40;
+int numBtnY = 40;
+
+//Button Positioning
+int numDel_Btn_Start_x = ;
+int numDel_Btn_Start_y = ;
+int numDel_Btn_Stop_x = numDel_Btn_Start_x + numBtnX;
+int numDel_Btn_Stop_y = numDel_Btn_Start_y + numBtnY;
+
+int numLett_Btn_Start_x = ;
+int numLett_Btn_Start_y = ;
+int numLett_Btn_Stop_x = numLett_Btn_Start_x + numBtnX;
+int numLett_Btn_Stop_y = numLett_Btn_Start_y + numBtnY;
+
+int num1_Btn_Start_x = ;
+int num1_Btn_Start_y = ;
+int num1_Btn_Stop_x = num1_Btn_Start_x + numBtnX;
+int num1_Btn_Stop_y = num1_Btn_Start_y + numBtnY;
+
+int num2_Btn_Start_x = ;
+int num2_Btn_Start_y = ;
+int num2_Btn_Stop_x = num2_Btn_Start_x + numBtnX;
+int num2_Btn_Stop_y = num2_Btn_Start_y + numBtnY;
+
+int num3_Btn_Start_x = ;
+int num3_Btn_Start_y = ;
+int num3_Btn_Stop_x = num3_Btn_Start_x + numBtnX;
+int num3_Btn_Stop_y = num3_Btn_Start_y + numBtnY;
+
+int num4_Btn_Start_x = ;
+int num4_Btn_Start_y = ;
+int num4_Btn_Stop_x = num4_Btn_Start_x + numBtnX;
+int num4_Btn_Stop_y = num4_Btn_Start_y + numBtnY;
+
+int num5_Btn_Start_x = ;
+int num5_Btn_Start_y = ;
+int num5_Btn_Stop_x = num5_Btn_Start_x + numBtnX;
+int num5_Btn_Stop_y = num5_Btn_Start_y + numBtnY;
+
+int num6_Btn_Start_x = ;
+int num6_Btn_Start_y = ;
+int num6_Btn_Stop_x = num6_Btn_Start_x + numBtnX;
+int num6_Btn_Stop_y = num6_Btn_Start_y + numBtnY;
+
+int num7_Btn_Start_x = ;
+int num7_Btn_Start_y = ;
+int num7_Btn_Stop_x = num7_Btn_Start_x + numBtnX;
+int num7_Btn_Stop_y = num7_Btn_Start_y + numBtnY;
+
+int num8_Btn_Start_x = ;
+int num8_Btn_Start_y = ;
+int num8_Btn_Stop_x = num8_Btn_Start_x + numBtnX;
+int num8_Btn_Stop_y = num8_Btn_Start_y + numBtnY;
+
+int num9_Btn_Start_x = ;
+int num9_Btn_Start_y = ;
+int num9_Btn_Stop_x = num9_Btn_Start_x + numBtnX;
+int num9_Btn_Stop_y = num9_Btn_Start_y + numBtnY;
+
+int numBck_Btn_Start_x = ;
+int numBck_Btn_Start_y = ;
+int numBck_Btn_Stop_x = numBck_Btn_Start_x + numBtnX;
+int numBck_Btn_Stop_y = numBck_Btn_Start_y + numBtnY;
+
+int numPd_Btn_Start_x = ;
+int numPd_Btn_Start_y = ;
+int numPd_Btn_Stop_x = numPd_Btn_Start_x + numBtnX;
+int numPd_Btn_Stop_y = numPd_Btn_Start_y + numBtnY;
+
+int numOk_Btn_Start_x = ;
+int numOk_Btn_Start_y = ;
+int numOk_Btn_Stop_x = numOk_Btn_Start_x + numBtnX;
+int numOk_Btn_Stop_y = numOk_Btn_Start_y + numBtnY;
+/*------------------------------------*/
 /*******************/
 
 void setup() {
@@ -322,7 +421,12 @@ void setup() {
 }
 
 void loop() {
-  updateMainScreen();
+  if(activeScreen == 0) {
+      updateMainScreen();
+  }
+  else if(activeScreen == 1) {
+    
+  }
 }
 
 /**Redraw the main home screen**/
@@ -1133,6 +1237,382 @@ void updateMainScreen() {
   }
 }
 
+/** **/
+void drawInputScreen() {
+  tft.Fill_Screen(BLACK);   //Change the screen to solid black
+
+  //Value Field Border
+  tft.Set_Draw_color(YELLOW);
+  tft.Draw_Rectangle(, , , );
+
+  //Value Text
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_Number_Float(, 2, 0, 56, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+  
+  //Button 'Delete'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("1", Start_x + 17, Start_y + 17);
+
+  //Button 'Letter'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("1", Start_x + 17, Start_y + 17);
+
+  //Button '1'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("1", Start_x + 17, Start_y + 17);
+
+  //Button '2'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("2", Start_x + 17, Start_y + 17);
+
+  //Button '3'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("3", Start_x + 17, Start_y + 17);
+
+  //Button '4'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("4", Start_x + 17, Start_y + 17);
+    
+  //Button '5'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("5", Start_x + 17, Start_y + 17);
+
+  //Button '6'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("6", Start_x + 17, Start_y + 17);
+
+  //Button '7'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("7", Start_x + 17, Start_y + 17);
+
+  //Button '8'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("8", Start_x + 17, Start_y + 17);
+
+  //Button '9'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("9", Start_x + 17, Start_y + 17);
+
+  //Button 'Back'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("Back", Start_x + 17, Start_y + 17);
+
+  //Button '.'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String(".", Start_x + 17, Start_y + 17);
+
+  //Button 'Ok'
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(Start_x, Start_y, Stop_x, Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("OK", Start_x + 17, Start_y + 17);
+}
+
+/** **/
+void updateInputScreen() {
+  /***Touch Update***/
+  TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
+  pinMode(XM, OUTPUT);
+  pinMode(YP, OUTPUT);
+
+  int x = map(p.x, TS_LEFT, TS_RIGHT, 0, 480);
+  int y = map(p.y, TS_TOP, TS_BOT, 0, 320);
+
+  //'Delete' Button
+  if(x > numDel_Btn_Start_x && x < numDel_Btn_Stop_x && y > numDel_Btn_Start_y && y < numDel_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+    
+    
+    //Flag the delete button as pressed
+    delBtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(delBtnFlag) {
+
+
+    delBtnFlag = false;
+  }
+
+  //'Letters' Button
+  if(x > numLett_Btn_Start_x && x < numLett_Btn_Stop_x && y > numLett_Btn_Start_y && y < numLett_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    lettBtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(lettBtnFlag) {
+    
+
+    lettBtnFlag = false;
+  }
+
+  //'1' Button
+  if(x > num1_Btn_Start_x && x < num1_Btn_Stop_x && y > num1_Btn_Start_y && y < num1_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    1BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(1BtnFlag) {
+    
+
+    1BtnFlag = false;
+  }
+
+  //'2' Button
+  if(x > num2_Btn_Start_x && x < num2_Btn_Stop_x && y > num2_Btn_Start_y && y < num2_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    2BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(2BtnFlag) {
+    
+
+    2BtnFlag = false;
+  }
+
+  //'3' Button
+  if(x > num3_Btn_Start_x && x < num3_Btn_Stop_x && y > num3_Btn_Start_y && y < num3_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    3BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(3BtnFlag) {
+    
+
+    3BtnFlag = false;
+  }
+
+  //'4' Button
+  if(x > num4_Btn_Start_x && x < num4_Btn_Stop_x && y > num4_Btn_Start_y && y < num4_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    4BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(4BtnFlag) {
+    
+
+    4BtnFlag = false;
+  }
+
+  //'5' Button
+  if(x > num5_Btn_Start_x && x < num5_Btn_Stop_x && y > num5_Btn_Start_y && y < num5_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    5BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(5BtnFlag) {
+    
+
+    5BtnFlag = false;
+  }
+
+  //'6' Button
+  if(x > num6_Btn_Start_x && x < num6_Btn_Stop_x && y > num6_Btn_Start_y && y < num6_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    6BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(6BtnFlag) {
+    
+
+    6BtnFlag = false;
+  }
+
+  //'7' Button
+  if(x > num7_Btn_Start_x && x < num7_Btn_Stop_x && y > num7_Btn_Start_y && y < num7_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    7BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(7BtnFlag) {
+    
+
+    7BtnFlag = false;
+  }
+
+  //'8' Button
+  if(x > num8_Btn_Start_x && x < num8_Btn_Stop_x && y > num8_Btn_Start_y && y < num8_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    8BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(8BtnFlag) {
+    
+
+    8BtnFlag = false;
+  }
+
+  //'9' Button
+  if(x > num9_Btn_Start_x && x < num9_Btn_Stop_x && y > num9_Btn_Start_y && y < num9_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    9BtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(9BtnFlag) {
+    
+
+    9BtnFlag = false;
+  }
+
+  //Back Button
+  if(x > numBck_Btn_Start_x && x < numBck_Btn_Stop_x && y > numBck_Btn_Start_y && y < numBck_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+    
+    
+    //Flag the delete button as pressed
+    backBtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(backBtnFlag) {
+    
+
+    backBtnFlag = false;
+  }
+
+  //'Decimal' ('.') Button
+  if(x > numPd_Btn_Start_x && x < numPd_Btn_Stop_x && y > numPd_Btn_Start_y && y < numPd_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+        
+    
+    //Flag the delete button as pressed
+    decimalBtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(decimalBtnFlag) {
+    
+
+    decimalBtnFlag = false;
+  }
+  
+  //'Ok' Button
+  if(x > numOk_Btn_Start_x && x < numOk_Btn_Stop_x && y > numOk_Btn_Start_y && y < numOk_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+      
+    
+    //Flag the delete button as pressed
+    okBtnFlag = true;
+    delay(50);
+    //TODO: 
+  }
+  else if(okBtnFlag) {
+    
+
+    okBtnFlag = false;
+  }
+}
+
 void drawProfileLoadScreen() {
   tft.Fill_Screen(BLACK);    //Change the screen to solid black
 }
@@ -1142,7 +1622,7 @@ void updateProfileLoadScreen() {
 }
 
 void drawNewProfileScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black 
+  tft.Fill_Screen(BLACK);    //Change the screen to solid black
 }
 
 void updateNewProfileScreen() {
@@ -1159,6 +1639,7 @@ void updateEditProfileScreen() {
 
 void drawMachineSettingsScreen() {
   tft.Fill_Screen(BLACK);    //Change the screen to solid black
+  
 }
 
 void updateMachineSettingsScreen() {
@@ -1190,8 +1671,9 @@ void updateStepsMMScreen() {
 }
 
 /**Move the specified motor to a specified location 
-   TODO: get steps to target point 
-         add deceleration**/
+   TODO: get delta distance
+         calculate # steps needed 
+         incorporate deceleration**/
 void moveTo(char motor, float mmPos) {
   if(motor == 'A') {
     int toSteps = (mmPos * mStepsPerA) - mStepsA;   //Get the distance needing to be closed from current position in step number
@@ -1199,8 +1681,8 @@ void moveTo(char motor, float mmPos) {
     long prevPulseTime = startTime;                 //Initialize the previous pulse timer
 
     int i = 0;
-    while(i < toSteps) {      //While there are still steps to be made
-      long curTime = millis();    //Update the current time
+    while(i < toSteps) {            //While there are still steps to be made
+      long curTime = millis();      //Update the current time
       
       mCurVelocityA = (mAccelA * (startTime - curTime)) + (mJerkA * (startTime - curTime)^2);         //Calculate the current velocity from elapsed time
       if(mCurVelocityA > mVelocityA) {                                                                //If the value would go beyond the max allowed
@@ -1213,6 +1695,7 @@ void moveTo(char motor, float mmPos) {
         prevPulseTime = millis();
         i++;
         doStep('A');
+        doStep('D');
       }
     }
   }
@@ -1266,13 +1749,14 @@ void moveTo(char motor, float mmPos) {
 
 /**Move the specified motor by one step**/
 void doStep(char motor) {
-  if(motor == 'A') {
-    if(mDirA == 0) {
-      mStepsA++;
+  if(motor == 'A') {               //If the motor specified is motor A
+    if(mDirA == 0) {               //If the direction of movement is 0
+      mStepsA++;                   //Increase the counted steps
     }
-    else if(mDirA == 1) {
-      mStepsA--;
+    else if(mDirA == 1) {          //If the direction of movement is 1
+      mStepsA--;                   //Decrease the counted steps
     }
+    //Send step pulse command
     digitalWrite(pulseA, HIGH);
     delayMicroseconds(5);
     digitalWrite(pulseA, LOW);
@@ -1317,10 +1801,12 @@ void disableMotors() {
 }
 
 /**Change the microstepping of the specified motor (A, B, C, D)**/
+//uStep 0 = 1, 1 = 1/2, 2 = 1/4, 3 = 1/8, 4 = 1/16
 void setMicroStepping(char motor, int uStep) {
-  if(motor == 'A') {
-    mUStepA = uStep;
-    
+  if(motor == 'A' || motor == 'D') {  //If the specified motor is motor A or D (top/bot carriages)
+    mUStepA = uStep;                  //Update the motor A microstepping variable
+
+    //Motor D is cloned from A with few exceptions such as inversion and direction settings
     switch(uStep) {
       case 0:                       //Full Step
         digitalWrite(MS1A, LOW);
@@ -1430,49 +1916,148 @@ void setMicroStepping(char motor, int uStep) {
 
 /**Sets the direction of the specified motor, inverts it if defined**/
 void setMotorDirection(char motor, boolean dir) {
-  if(motor == 'A') {
-    if(mInvDirA) {
-      dir = !dir;
+  if(motor == 'A') {            //If the specified motor is motor A (top carriages)
+    if(mInvDirA) {              //If the motor is marked as inverted
+      dir = !dir;               //Change the direction to the opposite of the given direction
     }
-    mDirA = dir;
-    digitalWrite(dirA, dir);
+    mDirA = dir;                //Update the current motor direction variable
+    digitalWrite(dirA, dir);    //Set the direction of motor A
   }
-  else if(motor == 'B') {
-    if(mInvDirB) {
-      dir = !dir;
+  else if(motor == 'B') {       //If the specified motor is motor B (top clamp)
+    if(mInvDirB) {              //If the motor is marked as inverted
+      dir = !dir;               //Change the direction to the opposite of the given direction
     }
-    mDirB = dir;
-    digitalWrite(dirB, dir);
+    mDirB = dir;                //Update the current motor direction variable
+    digitalWrite(dirB, dir);    //Set the direction of motor B
   }
-  else if(motor == 'C') {
-    if(mInvDirC) {
-      dir = !dir;
+  else if(motor == 'C') {       //If the specified motor is motor C (bottom clamp)
+    if(mInvDirC) {              //If the motor is marked as inverted
+      dir = !dir;               //Change the direction to the opposite of the given direction
     }
-    mDirC = dir;
-    digitalWrite(dirC, dir);
+    mDirC = dir;                //Update the current motor direction variable
+    digitalWrite(dirC, dir);    //Set the direction of motor C
   }
-  else if(motor == 'D') {
-    if(mInvDirD) {
-      dir = !dir;
+  else if(motor == 'D') {       //If the specified motor is motor D (bottom carriages)
+    if(mInvDirD) {              //If the motor is marked as inverted
+      dir = !dir;               //Change the direction to the opposite of the given direction
     }
-    mDirD = dir;
-    digitalWrite(dirD, dir);
-  }
-  else {
-    
+    mDirD = dir;                //Update the current motor direction variable
+    digitalWrite(dirD, dir);    //Set the direction of motor D
   }
 }
 
-/** **/
-void saveProfile(char profileID) {
-  int eeAddr = 100;
+/**Saves the specified profile**/
+void saveProfile(int profileNum) {
+  //Change the starting memory address of the initial data value depending on which profile is being saved
+  switch(profileNum) {
+    case(0):
+      int eeAddr = 150;
+      break;
+    case(1);
+      int eeAddr = 200;
+      break;
+    case(2):
+      int eeAddr = 250;
+      break;
+    case(3):
+      int eeAddr = 300;
+      break;
+    case(4):
+      int eeAddr = 350;
+      break;
+    case(5):
+      int eeAddr = 400;
+      break;
+    case(6):
+      int eeAddr = 450;
+      break;
+    case(7):
+      int eeAddr = 500;
+      break;
+    case(8):
+      int eeAddr = 550;
+      break;
+    case(9):
+      int eeAddr = 600;
+      break;
+  }
 
+  EEPROM.put(eeAddr, profile);        //Save the profile name (5byte/char limit)
+  eeAddr += sizeof(profile);          //Increase the address location to the next free spot
+  EEPROM.put(eeAddr, numProfSteps);   //Save the number of steps used in the profile
+  eeAddr += sizeof(int);              
+  EEPROM.put(eeAddr, tClampDist1);    //Save the value of the top clamp position
+  eeAddr += sizeof(int);              
+  EEPROM.put(eeAddr, bClampDist1);    //Save the value of the bottom clamp position
+  eeAddr += sizeof(int);    
+  EEPROM.put(eeAddr, hDist1);         //Save the value of the top/bottom carriage position
+  eeAddr += sizeof(int);
+  
+  if(numProfSteps == 2) {             //If there are 2 steps in the profile
+    EEPROM.put(eeAddr, hDist2);       //Save the second top/bottom carriage position
+    eeAddr += sizeof(int);
+  }
+  else if(numProfSteps == 3) {        //If there are 3 steps in the profile
+    EEPROM.put(eeAddr, hDist3);       //Save the third top/bottom carriage position
+    eeAddr += sizeof(int);
+  }
 }
 
-/** **/
-void loadProfile(char profileID) {
-  int eeAddr = 100;
+/**Loads the specified profile**/
+void loadProfile(int profileNum) {
+  //Change the starting memory address of the initial data value depending on which profile is being loaded
+  switch(profileNum) {
+    case(0):
+      int eeAddr = 150;
+      break;
+    case(1);
+      int eeAddr = 200;
+      break;
+    case(2):
+      int eeAddr = 250;
+      break;
+    case(3):
+      int eeAddr = 300;
+      break;
+    case(4):
+      int eeAddr = 350;
+      break;
+    case(5):
+      int eeAddr = 400;
+      break;
+    case(6):
+      int eeAddr = 450;
+      break;
+    case(7):
+      int eeAddr = 500;
+      break;
+    case(8):
+      int eeAddr = 550;
+      break;
+    case(9):
+      int eeAddr = 600;
+      break;
+  }
 
+  EEPROM.get(eeAddr, profile);        //Load the profile name (5byte/char limit)
+  eeAddr += sizeof(profile);          //Increase the address location to the next free spot
+  EEPROM.get(eeAddr, numProfSteps);   //Load the number of steps used in the profile
+  eeAddr += sizeof(int);
+  EEPROM.get(eeAddr, tClampDist1);    //Load the value of the top clamp position
+  eeAddr += sizeof(int);
+  EEPROM.get(eeAddr, bClampDist1);    //Load the value of the bottom clamp position
+  eeAddr += sizeof(int);
+  EEPROM.get(eeAddr, hDist1);         //Load the value of the top/bottom carriage position
+  eeAddr += sizeof(int);
+  
+  if(numProfSteps == 2) {             //If there are 2 steps in the profile
+    EEPROM.get(eeAddr, hDist2);       //Load the second top/bottom carriage position
+    eeAddr += sizeof(int);
+  }
+  else if(numProfSteps == 3) {        //If there are 3 steps in the profile
+    EEPROM.get(eeAddr, hDist3);       //Load the third top/bottom carriage position
+    eeAddr += sizeof(int);
+  }
 }
 
 /**Saves the current values to the EEPROM **/
@@ -1627,16 +2212,60 @@ void loadMachineSettings() {
 
 /**Calculate a distance(mm) from the step count**/
 float convertStepsToDistance(int mSteps, float mStepsPer, int mUStep) {
-  //float distance = (mSteps / mStepsPer) * ;
-  //return distance;
+  //0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
+  float uStepF = 0;
+  switch(mUStep) {
+    case(0):
+      uStepF = 1;
+      break;
+    case(1):
+      uStepF = 1/2;
+      break;
+    case(2):
+      uStepF = 1/4;
+      break;
+    case(3):
+      uStepF = 1/8;
+      break;
+    case(4):
+      uStepF = 1/16;
+      break;
+  }
+  float distance = (mSteps / mStepsPer) * uStepF;
+  return distance;
+}
+
+/**Calculates the number of steps to meet a distane**/
+int convertDistanceToSteps(float distance, float mStepsPer, int mUStep) {
+  //0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
+  float uStepF = 0;
+  switch(mUStep) {
+    case(0):
+      uStepF = 1;
+      break;
+    case(1):
+      uStepF = 1/2;
+      break;
+    case(2):
+      uStepF = 1/4;
+      break;
+    case(3):
+      uStepF = 1/8;
+      break;
+    case(4):
+      uStepF = 1/16;
+      break;
+  }
+  float steps = (distance * mStepsPer) / uStepF;
+  return steps;
 }
 
 /**Wait for elapsed time without suspending program**/
 boolean wait(int waitTime, long timeStarted) {
-  if(millis() - timeStarted >= waitTime) {
-    return true;
+  if(millis() - timeStarted >= waitTime) {    //If the right amount of time has passed
+    return true;                              //Return 1 (true)
   }
-  else {
-    return false;
+  else {                                      //Otherwise
+    return false;                             //Return 0 (false)
   }
 }
