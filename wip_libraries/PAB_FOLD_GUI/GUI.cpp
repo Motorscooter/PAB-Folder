@@ -1,24 +1,9 @@
-/*****LIBRARIES*****/
-#include <LCDWIKI_GUI.h> //LCD core graphics library
-#include <LCDWIKI_KBV.h> //LCD hardware-specific library
-#include <TouchScreen.h> //LCD touch library
-#include <EEPROM.h>      //Memory storage library
-/******************/
-
-/*****DEFINITIONS*****/
-//LCD Pin Connections
-#define LCD_RESET A4
-#define LCD_CS    A3 
-#define LCD_CD    A2
-#define LCD_WR    A1  
-#define LCD_RD    A0
+#include "Arduino.h"
+#include "GUI.h"
+#include <LCDWIKI_GUI.h>
+#include <LCDWIKI_KBV.h>
+#include <TouchScreen.h>
    
-//Touch Screen Connections
-#define YP A2  // must be an analog pin, use "An" notation!
-#define XM A3  // must be an analog pin, use "An" notation!
-#define YM 8   // can be a digital pin
-#define XP 9   // can be a digital pin
-
 #define MINPRESSURE 10
 #define MAXPRESSURE 1000
 
@@ -33,1024 +18,883 @@
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
-//Stepper Motor Connections
-#define pulseA  23
-#define pulseB  25
-#define pulseC  27
-#define dirA    22
-#define dirB    24
-#define dirC    26
+//LCD Pin Connections
+#define LCD_RESET A4
+#define LCD_CS    A3 
+#define LCD_CD    A2
+#define LCD_WR    A1  
+#define LCD_RD    A0
 
-//Stepper Motor Enabling
-#define ENABLE_MOTORS 53
+const int YP = A2;  // must be an analog pin, use "An" notation!
+const int XM = A3;  // must be an analog pin, use "An" notation!
+const int YM = 8;   // can be a digital pin
+const int XP = 9;   // can be a digital pin
 
-//Stepper Motor Settings
-  /*LOW LOW LOW   - Full Step
-    HIGH LOW LOW  - Half Step
-    LOW HIGH LOW  - Quarter Step
-    HIGH HIGH LOW - Eighth Step
-    HIGH HIGH HIGH - Sixteenth Step*/
-#define MS1A 38
-#define MS2A 40
-#define MS3A 42     
-#define MS1B 30
-#define MS2B 32
-#define MS3B 34
-#define MS1C 39
-#define MS2C 41
-#define MS3C 43
-#define MS1D 31
-#define MS2D 33
-#define MS3D 35
-
-//Endstops
-#define xEndstop 45
-#define yEndstop 47
-#define zEndStop 49
-
-/*********************/
-
-/*****CONSTANTS*****/
-
-/*******************/
-
-/*****VARIABLES*****/
-LCDWIKI_KBV tft(ILI9486,LCD_CD,LCD_CD,LCD_WR,LCD_RD,LCD_RESET); //model,cs,cd,wr,rd,reset
-
-// For better pressure precision, we need to know the resistance
-// between X+ and X- Use any multimeter to read it
-// For the one we're using, its 300 ohms across the X plate
+LCDWIKI_KBV tft(ILI9486,LCD_CD,LCD_CD,LCD_WR,LCD_RD,LCD_RESET);
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
-//Touch parameter calibration
-int TS_LEFT = 70;
-int TS_RIGHT = 940;
-int TS_TOP = 130;
-int TS_BOT = 900;
-
-long doubleTapPeriod = 300;
-
-/////MACHINE SETTINGS
-//Homing Offsets
-float homeOffsetT = 0;
-float homeOffsetB = 0;
-float homeOffsetClampT = 0;
-float homeOffsetClampB = 0;
-
-/////MOTOR SETTINGS
-//Motor Steps/mm
-float mStepsPerA = 80;
-float mStepsPerB = 80;
-float mStepsPerC = 80;
-
-//Motor Step Tracking
-int mStepsA = 0;
-int mStepsB = 0;
-int mStepsC = 0;
-
-//Motor Enabled
-boolean enM = true;
-//Motor Direction
-boolean mDirA = 0;
-boolean mDirB = 0;
-boolean mDirC = 0;
-
-//Motor Direction Inversion
-boolean mInvDirA = false;
-boolean mInvDirB = false;
-boolean mInvDirC = false;
-
-//Microstepping Value
-//0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
-int mUStepA = 4;
-int mUStepB = 4;
-int mUStepC = 4;
-
-//Max Velocity (mm/s)
-int mVelocityA = 50;
-int mVelocityB = 50;
-int mVelocityC = 50;
-
-//Cur Velocity (mm/s)
-int mCurVelocityA = 50;
-int mCurVelocityB = 50;
-int mCurVelocityC = 50;
-
-//Max Acceleration (mm/s^2)
-int mAccelA = 25;
-int mAccelB = 25;
-int mAccelC = 25;
-
-//Max Acceleration (mm/s^2)
-int mCurAccelA = 25;
-int mCurAccelB = 25;
-int mCurAccelC = 25;
-
-//Max Jerk (mm/s^3)
-int mJerkA = 7;
-int mJerkB = 7;
-int mJerkC = 7;
-
-/////CLAMP STATUS
-boolean tClampEngaged = false;
-boolean bClampEngaged = false;
-
-/////PROFILE VALUES
-String profile = "     ";
-int numProfSteps = 1;
-int tClampDist = 0;
-int bClampDist = 0;
-int hDist1 = 0;
-int hDist2 = 0;
-int hDist3 = 0;
-  
-/////GUI Relations
-int activeScreen = 0; //0 = home screen
-double inputVal = 0;
-String profiles[10];
+GUI::GUI(int _mStepsA, int _mStepsB, int _mStepsC, float _mStepsPerA, float _mStepsPerB, float _mStepsPerC) {		//Touch Screen Connections
+int mStepsA = _mStepsA;
+int mStepsB = _mStepsB;
+int mStepsC = _mStepsC;
+int mStepsPerA = _mStepsPerA;
+int mStepsPerB = _mStepsPerB;
+int mStepsPerC = _mStepsPerC;
 
 int prevActiveScreen;
-float inputVar;
-
-/////BUTTON STATUS VARIABLES
-boolean loadBtnFlag = false;
-boolean newBtnFlag = false;
-boolean editBtnFlag = false;
-boolean setBtnFlag = false;
-boolean tClampBtnFlag = false;
-boolean bClampBtnFlag = false;
-boolean homeBtnFlag = false;
-boolean prevBtnFlag = false;
-boolean nextBtnFlag = false;
-boolean togMotBtnFlag = false;
-boolean upTBtnFlag = false;
-boolean downTBtnFlag = false;
-boolean upBBtnFlag = false;
-boolean downBBtnFlag = false;
-boolean inBtnFlag = false;
-boolean outBtnFlag = false;
-boolean amountBtnFlag = false;
-
-boolean pBackBtnFlag = false;
-boolean pCfmBtnFlag = false;
-boolean p1BtnFlag = false;
-boolean p2BtnFlag = false;
-boolean p3BtnFlag = false;
-boolean p4BtnFlag = false;
-boolean p5BtnFlag = false;
-boolean p6BtnFlag = false;
-boolean p7BtnFlag = false;
-boolean p8BtnFlag = false;
-boolean p9BtnFlag = false;
-boolean p10BtnFlag = false;
-
-boolean pnNameBtnFlag = false;
-boolean pnTClampBtnFlag = false;
-boolean pnBClampBtnFlag = false;
-boolean pnFChBtnFlag = false;
-boolean pnStp1BtnFlag = false;
-boolean pnStp2BtnFlag = false;
-boolean pnStp3BtnFlag = false;
-boolean pnStp4BtnFlag = false;
-boolean pnStp5BtnFlag = false;
-boolean pnBckBtnFlag = false;
-boolean pnSaveBtnFlag = false;
-
-boolean mAuSBtnFlag = false;
-boolean mBuSBtnFlag = false;
-boolean mCuSBtnFlag = false;
-boolean mAinvBtnFlag = false;
-boolean mBinvBtnFlag = false;
-boolean mCinvBtnFlag = false;
-
-boolean sVelBtnFlag = false;
-boolean sAccelBtnFlag = false;
-boolean sJerkBtnFlag = false;
-boolean sUSBtnFlag = false;
-boolean sSmmBtnFlag = false;
-boolean sRstBtnFlag = false;
-
-boolean svAValBtnFlag = false;
-boolean svBValBtnFlag = false;
-boolean svCValBtnFlag = false;
-boolean svADecBtnFlag = false;
-boolean svBDecBtnFlag = false;
-boolean svCDecBtnFlag = false;
-boolean svAIncBtnFlag = false;
-boolean svBIncBtnFlag = false;
-boolean svCIncBtnFlag = false;
-boolean svAamtBtnFlag = false;
-boolean svBamtBtnFlag = false;
-boolean svCamtBtnFlag = false;
-
-boolean saAValBtnFlag = false;
-boolean saBValBtnFlag = false;
-boolean saCValBtnFlag = false;
-boolean saADecBtnFlag = false;
-boolean saBDecBtnFlag = false;
-boolean saCDecBtnFlag = false;
-boolean saAIncBtnFlag = false;
-boolean saBIncBtnFlag = false;
-boolean saCIncBtnFlag = false;
-boolean saAamtBtnFlag = false;
-boolean saBamtBtnFlag = false;
-boolean saCamtBtnFlag = false;
-
-boolean sjAValBtnFlag = false;
-boolean sjBValBtnFlag = false;
-boolean sjCValBtnFlag = false;
-boolean sjADecBtnFlag = false;
-boolean sjBDecBtnFlag = false;
-boolean sjCDecBtnFlag = false;
-boolean sjAIncBtnFlag = false;
-boolean sjBIncBtnFlag = false;
-boolean sjCIncBtnFlag = false;
-boolean sjAamtBtnFlag = false;
-boolean sjBamtBtnFlag = false;
-boolean sjCamtBtnFlag = false;
-
-boolean ssmmAValBtnFlag = false;
-boolean ssmmBValBtnFlag = false;
-boolean ssmmCValBtnFlag = false;
-boolean ssmmADecBtnFlag = false;
-boolean ssmmBDecBtnFlag = false;
-boolean ssmmCDecBtnFlag = false;
-boolean ssmmAIncBtnFlag = false;
-boolean ssmmBIncBtnFlag = false;
-boolean ssmmCIncBtnFlag = false;
-boolean ssmmAamtBtnFlag = false;
-boolean ssmmBamtBtnFlag = false;
-boolean ssmmCamtBtnFlag = false;
-
-boolean delBtnFlag = false;
-boolean lettBtnFlag = false;
-boolean n1BtnFlag = false;
-boolean n2BtnFlag = false;
-boolean n3BtnFlag = false;
-boolean n4BtnFlag = false;
-boolean n5BtnFlag = false;
-boolean n6BtnFlag = false;
-boolean n7BtnFlag = false;
-boolean n8BtnFlag = false;
-boolean n9BtnFlag = false;
-boolean backBtnFlag = false;
-boolean decimalBtnFlag = false;
-boolean okBtnFlag = false;
-
-/*--------------Home Screen------------*/
-//Button Sizes
-int xPadding = 5;
-int yPadding = 5;
-
-int configBtnX = 137;
-int configBtnY = 40;
-
-int settingBtnX = 40;
-int settingBtnY = 40;
-
-int clampBtnX = 105;
-int clampBtnY = 120;
-
-int homeBtnX = 40;
-int homeBtnY = 40;
-
-int mStepBtnX = 40;
-int mStepBtnY = 40;
-
-int mEnBtnX = 100;
-int mEnBtnY = 245;
-
-int manualBtnX = 40;
-int manualBtnY = 40;
-
-float moveAmount = 0.1;
-
-//Button Positioning
-int load_Btn_Start_x = xPadding;
-int load_Btn_Start_y = yPadding;
-int load_Btn_Stop_x = load_Btn_Start_x + configBtnX;
-int load_Btn_Stop_y = load_Btn_Start_y + configBtnY;  
-
-int new_Btn_Start_x = (xPadding*2) + (configBtnX);
-int new_Btn_Start_y = yPadding;
-int new_Btn_Stop_x = new_Btn_Start_x + configBtnX;
-int new_Btn_Stop_y = new_Btn_Start_y + configBtnY;
-
-int edit_Btn_Start_x = (xPadding*3) + (configBtnX*2);
-int edit_Btn_Start_y = yPadding;
-int edit_Btn_Stop_x = edit_Btn_Start_x + configBtnX;
-int edit_Btn_Stop_y = edit_Btn_Start_y + configBtnY;
-
-int set_Btn_Start_x = (xPadding*4) + (configBtnX*3);
-int set_Btn_Start_y = yPadding;
-int set_Btn_Stop_x = set_Btn_Start_x + settingBtnX;
-int set_Btn_Stop_y = set_Btn_Start_y + settingBtnY;
-
-int top_clamp_Btn_Start_x = 365;
-int top_clamp_Btn_Start_y = (yPadding*3) + settingBtnY + 15;
-int top_clamp_Btn_Stop_x = top_clamp_Btn_Start_x + clampBtnX;
-int top_clamp_Btn_Stop_y =top_clamp_Btn_Start_y + clampBtnY;
-
-int bot_clamp_Btn_Start_x = 365;
-int bot_clamp_Btn_Start_y = (yPadding*4) + settingBtnY + clampBtnY + 15;
-int bot_clamp_Btn_Stop_x = bot_clamp_Btn_Start_x + clampBtnX;
-int bot_clamp_Btn_Stop_y = bot_clamp_Btn_Start_y + clampBtnY;
-
-int home_Btn_Start_x = xPadding;
-int home_Btn_Start_y = bot_clamp_Btn_Stop_y - homeBtnY;
-int home_Btn_Stop_x = home_Btn_Start_x + homeBtnX;
-int home_Btn_Stop_y = home_Btn_Start_y + homeBtnY;
-
-int prev_Btn_Start_x = (xPadding*2) + homeBtnX + 25;
-int prev_Btn_Start_y = bot_clamp_Btn_Stop_y - mStepBtnY;
-int prev_Btn_Stop_x = prev_Btn_Start_x + mStepBtnX;
-int prev_Btn_Stop_y = prev_Btn_Start_y + mStepBtnY;
-
-int next_Btn_Start_x = 355 - mEnBtnX - mStepBtnX;
-int next_Btn_Start_y = bot_clamp_Btn_Stop_y - mStepBtnY;
-int next_Btn_Stop_x = next_Btn_Start_x + mStepBtnX;
-int next_Btn_Stop_y = next_Btn_Start_y + mStepBtnY;
-
-int mEN_Btn_Start_x = 360 - mEnBtnX;
-int mEN_Btn_Start_y = (yPadding*3) + settingBtnY + 15;
-int mEN_Btn_Stop_x = mEN_Btn_Start_x + mEnBtnX;
-int mEN_Btn_Stop_y = mEN_Btn_Start_y + mEnBtnY;
-
-int upT_Btn_Start_x = (xPadding * 3) + manualBtnX;
-int upT_Btn_Start_y = (yPadding*8) + settingBtnY + 100;
-int upT_Btn_Stop_x = upT_Btn_Start_x + manualBtnX;
-int upT_Btn_Stop_y = upT_Btn_Start_y + manualBtnY;
-
-int downT_Btn_Start_x = upT_Btn_Start_x;
-int downT_Btn_Start_y = upT_Btn_Stop_y + yPadding;
-int downT_Btn_Stop_x = downT_Btn_Start_x + manualBtnX;
-int downT_Btn_Stop_y = downT_Btn_Start_y + manualBtnY;
-
-int upB_Btn_Start_x = (xPadding * 4) + (manualBtnX * 2);
-int upB_Btn_Start_y = (yPadding*8) + settingBtnY + 100;
-int upB_Btn_Stop_x = upB_Btn_Start_x + manualBtnX;
-int upB_Btn_Stop_y = upB_Btn_Start_y + manualBtnY;
-
-int downB_Btn_Start_x = upB_Btn_Start_x;
-int downB_Btn_Start_y = upB_Btn_Stop_y + yPadding;
-int downB_Btn_Stop_x = downB_Btn_Start_x + manualBtnX;
-int downB_Btn_Stop_y = downB_Btn_Start_y + manualBtnY;
-
-int in_Btn_Start_x = upT_Btn_Start_x - manualBtnX - xPadding;
-int in_Btn_Start_y = upT_Btn_Start_y + (manualBtnY/2) + yPadding;
-int in_Btn_Stop_x = in_Btn_Start_x + manualBtnX;
-int in_Btn_Stop_y = in_Btn_Start_y + manualBtnY;
-
-int out_Btn_Start_x = upB_Btn_Stop_x + xPadding;
-int out_Btn_Start_y = upB_Btn_Start_y + (manualBtnY/2) + yPadding;
-int out_Btn_Stop_x = out_Btn_Start_x + manualBtnX;
-int out_Btn_Stop_y = out_Btn_Start_y + manualBtnY;
-
-int amount_Btn_Start_x = mEN_Btn_Start_x - (xPadding * 2) - manualBtnX;
-int amount_Btn_Start_y = out_Btn_Start_y;
-int amount_Btn_Stop_x = amount_Btn_Start_x + manualBtnX;
-int amount_Btn_Stop_y = amount_Btn_Start_y + manualBtnY;
-/*------------------------------*/
-
-/*--------Profile Load Screen-----------*/
-//Button Sizes
-int backBtnX = 80;
-int backBtnY = 40;
-
-int confirmBtnX = 40;
-int confirmBtnY = 40;
-
-int profileBtnX = 40;
-int profileBtnY = 80;
-
-//Button Positioning
-int pBack_Btn_Start_x = xPadding;
-int pBack_Btn_Start_y = yPadding;
-int pBack_Btn_Stop_x = pBack_Btn_Start_x + backBtnX;
-int pBack_Btn_Stop_y = pBack_Btn_Start_y + backBtnY;
-
-int pCfm_Btn_Start_x = 320 - xPadding - confirmBtnX;
-int pCfm_Btn_Start_y = 480 - xPadding - confirmBtnY;
-int pCfm_Btn_Stop_x = pCfm_Btn_Start_x + confirmBtnX;
-int pCfm_Btn_Stop_y = pCfm_Btn_Start_y + confirmBtnY;
-
-int p1_Btn_Start_x = xPadding + backBtnX + xPadding;
-int p1_Btn_Start_y = yPadding + 25;
-int p1_Btn_Stop_x = p1_Btn_Start_x + profileBtnX;
-int p1_Btn_Stop_y = p1_Btn_Start_y + profileBtnY;
-
-int p2_Btn_Start_x = p1_Btn_Stop_x + xPadding;
-int p2_Btn_Start_y = p1_Btn_Start_y;
-int p2_Btn_Stop_x = p2_Btn_Start_x + profileBtnX;
-int p2_Btn_Stop_y = p2_Btn_Start_y + profileBtnY;
-
-int p3_Btn_Start_x = p2_Btn_Start_x + xPadding;
-int p3_Btn_Start_y = p1_Btn_Start_y;
-int p3_Btn_Stop_x = p3_Btn_Start_x + profileBtnX;
-int p3_Btn_Stop_y = p3_Btn_Start_y + profileBtnY;
-
-int p4_Btn_Start_x = p3_Btn_Start_x + xPadding;
-int p4_Btn_Start_y = p1_Btn_Start_y;
-int p4_Btn_Stop_x = p4_Btn_Start_x + profileBtnX;
-int p4_Btn_Stop_y = p4_Btn_Start_y + profileBtnY;
-
-int p5_Btn_Start_x = p4_Btn_Start_x + xPadding;
-int p5_Btn_Start_y = p1_Btn_Start_y;
-int p5_Btn_Stop_x = p5_Btn_Start_x + profileBtnX;
-int p5_Btn_Stop_y = p5_Btn_Start_y + profileBtnY;
-
-int p6_Btn_Start_x = p1_Btn_Start_x;
-int p6_Btn_Start_y = p1_Btn_Stop_y + yPadding;
-int p6_Btn_Stop_x = p6_Btn_Start_x + profileBtnX;
-int p6_Btn_Stop_y = p6_Btn_Start_y + profileBtnY;
-
-int p7_Btn_Start_x = p1_Btn_Stop_x + xPadding;
-int p7_Btn_Start_y = p1_Btn_Stop_y + yPadding;
-int p7_Btn_Stop_x = p7_Btn_Start_x + profileBtnX;
-int p7_Btn_Stop_y = p7_Btn_Start_y + profileBtnY;
-
-int p8_Btn_Start_x = p2_Btn_Start_x + xPadding;
-int p8_Btn_Start_y = p1_Btn_Stop_y + yPadding;
-int p8_Btn_Stop_x = p8_Btn_Start_x + profileBtnX;
-int p8_Btn_Stop_y = p8_Btn_Start_y + profileBtnY;
-
-int p9_Btn_Start_x = p3_Btn_Start_x + xPadding;
-int p9_Btn_Start_y = p1_Btn_Stop_y + yPadding;
-int p9_Btn_Stop_x = p9_Btn_Start_x + profileBtnX;
-int p9_Btn_Stop_y = p9_Btn_Start_y + profileBtnY;
-
-int p10_Btn_Start_x = p4_Btn_Start_x + xPadding;
-int p10_Btn_Start_y = p1_Btn_Stop_y + yPadding;
-int p10_Btn_Stop_x = p10_Btn_Start_x + profileBtnX;
-int p10_Btn_Stop_y = p10_Btn_Start_y + profileBtnY;
-
-/*--------New Profile Screen-----------*/
-//Button Sizes
-int fieldBtnX = 100;
-int fieldBtnY = 40;
-
-int stepBtnX = 25;
-int stepBtnY = 25;
-
-int saveBtnX = 80;
-int saveBtnY = 40;
-
-//Button Positioning
-int pnName_Btn_Start_x = xPadding + 50;
-int pnName_Btn_Start_y = 50;
-int pnName_Btn_Stop_x = pnName_Btn_Start_x + fieldBtnX;
-int pnName_Btn_Stop_y = pnName_Btn_Start_y + fieldBtnY;
-
-int pnTClamp_Btn_Start_x = xPadding + 50;
-int pnTClamp_Btn_Start_y = pnName_Btn_Stop_y + yPadding + 15;
-int pnTClamp_Btn_Stop_x = pnTClamp_Btn_Start_x + fieldBtnX;
-int pnTClamp_Btn_Stop_y = pnTClamp_Btn_Start_y + fieldBtnY;
-
-int pnBClamp_Btn_Start_x = xPadding + 50;
-int pnBClamp_Btn_Start_y = pnTClamp_Btn_Stop_y + yPadding + 15;
-int pnBClamp_Btn_Stop_x = pnBClamp_Btn_Start_x + fieldBtnX;
-int pnBClamp_Btn_Stop_y = pnBClamp_Btn_Start_y + fieldBtnY;
-
-int pnFCh_Btn_Start_x = xPadding + 50;
-int pnFCh_Btn_Start_y = pnBClamp_Btn_Stop_y + yPadding + 15;
-int pnFCh_Btn_Stop_x = pnFCh_Btn_Start_x + fieldBtnX;
-int pnFCh_Btn_Stop_y = pnFCh_Btn_Start_y + fieldBtnY;
-
-int pnStp1_Btn_Start_x = xPadding + 100;
-int pnStp1_Btn_Start_y = pnFCh_Btn_Stop_y + yPadding + 30;
-int pnStp1_Btn_Stop_x = pnStp1_Btn_Start_x + stepBtnX;
-int pnStp1_Btn_Stop_y = pnStp1_Btn_Start_y + stepBtnY;
-
-int pnStp2_Btn_Start_x = xPadding + pnStp1_Btn_Stop_x;
-int pnStp2_Btn_Start_y = pnStp1_Btn_Start_y;
-int pnStp2_Btn_Stop_x = pnStp2_Btn_Start_x + stepBtnX;
-int pnStp2_Btn_Stop_y = pnStp2_Btn_Start_y + stepBtnY;
-
-int pnStp3_Btn_Start_x = xPadding + pnStp2_Btn_Start_x;
-int pnStp3_Btn_Start_y = pnStp1_Btn_Start_y;
-int pnStp3_Btn_Stop_x = pnStp3_Btn_Start_x + stepBtnX;
-int pnStp3_Btn_Stop_y = pnStp3_Btn_Start_y + stepBtnY;
-
-int pnStp4_Btn_Start_x = xPadding + pnStp3_Btn_Start_x;
-int pnStp4_Btn_Start_y = pnStp1_Btn_Start_y;
-int pnStp4_Btn_Stop_x = pnStp4_Btn_Start_x + stepBtnX;
-int pnStp4_Btn_Stop_y = pnStp4_Btn_Start_y + stepBtnY;
-
-int pnStp5_Btn_Start_x = xPadding + pnStp4_Btn_Start_x;
-int pnStp5_Btn_Start_y = pnStp1_Btn_Start_y;
-int pnStp5_Btn_Stop_x = pnStp5_Btn_Start_x + stepBtnX;
-int pnStp5_Btn_Stop_y = pnStp5_Btn_Start_y + stepBtnY;
-
-int pnBck_Btn_Start_x = xPadding;
-int pnBck_Btn_Start_y = 320 - yPadding - backBtnY;
-int pnBck_Btn_Stop_x = pnBck_Btn_Start_x + backBtnX;
-int pnBck_Btn_Stop_y = pnBck_Btn_Start_y + backBtnY;
-
-int pnSave_Btn_Start_x = 480 - xPadding - saveBtnX;
-int pnSave_Btn_Start_y = 320 - yPadding - backBtnY;
-int pnSave_Btn_Stop_x = pnSave_Btn_Start_x + saveBtnX;
-int pnSave_Btn_Stop_y = pnSave_Btn_Start_y + saveBtnY;
-
-/*--------Machine Settings Screen-----------*/
-//Button Sizes
-int setgBtnX = 152;
-int setgBtnY = 110;
-
-//Button Positioning
-int sVel_Btn_Start_x = xPadding;
-int sVel_Btn_Start_y = 45;
-int sVel_Btn_Stop_x = sVel_Btn_Start_x + setgBtnX;
-int sVel_Btn_Stop_y = sVel_Btn_Start_y + setgBtnY;
-
-int sAccel_Btn_Start_x = (480 / 2) - (setgBtnX / 2);
-int sAccel_Btn_Start_y = 45;
-int sAccel_Btn_Stop_x = sAccel_Btn_Start_x + setgBtnX;
-int sAccel_Btn_Stop_y = sAccel_Btn_Start_y + setgBtnY;
-
-int sJerk_Btn_Start_x = 480 - xPadding - setgBtnX;
-int sJerk_Btn_Start_y = 45;
-int sJerk_Btn_Stop_x = sJerk_Btn_Start_x + setgBtnX;
-int sJerk_Btn_Stop_y = sJerk_Btn_Start_y + setgBtnY;
-
-int sUS_Btn_Start_x = sVel_Btn_Start_x;
-int sUS_Btn_Start_y = sVel_Btn_Stop_y + 5;
-int sUS_Btn_Stop_x = sUS_Btn_Start_x + setgBtnX;
-int sUS_Btn_Stop_y = sUS_Btn_Start_y + setgBtnY;
-
-int sSmm_Btn_Start_x = sAccel_Btn_Start_x;
-int sSmm_Btn_Start_y = sVel_Btn_Stop_y + 5;
-int sSmm_Btn_Stop_x = sSmm_Btn_Start_x + setgBtnX;
-int sSmm_Btn_Stop_y = sSmm_Btn_Start_y + setgBtnY;
-
-int sRst_Btn_Start_x = sJerk_Btn_Start_x;
-int sRst_Btn_Start_y = sVel_Btn_Stop_y + 5;
-int sRst_Btn_Stop_x = sRst_Btn_Start_x + setgBtnX;
-int sRst_Btn_Stop_y = sRst_Btn_Start_y + setgBtnY;
-
-/*--------Microstepping Setting Screen-----------*/
-//Button Sizes
-int uSBtnX = 100;
-int uSBtnY = 100;
-
-int invBtnX = 25;
-int invBtnY = 25;
-
-//Button Positioning
-int mAuS_Btn_Start_x = 50;
-int mAuS_Btn_Start_y = 100;
-int mAuS_Btn_Stop_x = mAuS_Btn_Start_x + uSBtnX;
-int mAuS_Btn_Stop_y = mAuS_Btn_Stop_y + uSBtnY;
-
-int mBuS_Btn_Start_x = mAuS_Btn_Start_x + uSBtnX + 10;
-int mBuS_Btn_Start_y = 100;
-int mBuS_Btn_Stop_x = mBuS_Btn_Start_x + uSBtnX;
-int mBuS_Btn_Stop_y = mBuS_Btn_Stop_y + uSBtnY;
-
-int mCuS_Btn_Start_x = mBuS_Btn_Start_x + uSBtnX + 15;
-int mCuS_Btn_Start_y = 100;
-int mCuS_Btn_Stop_x = mCuS_Btn_Start_x + uSBtnX;
-int mCuS_Btn_Stop_y = mCuS_Btn_Start_y + uSBtnY;
-
-int mAinv_Btn_Start_x = mAuS_Btn_Start_x;
-int mAinv_Btn_Start_y = 200;
-int mAinv_Btn_Stop_x = mAinv_Btn_Start_x + invBtnX;
-int mAinv_Btn_Stop_y = mAinv_Btn_Start_y + invBtnY;
-
-int mBinv_Btn_Start_x = mBuS_Btn_Start_x;
-int mBinv_Btn_Start_y = 200;
-int mBinv_Btn_Stop_x = mBinv_Btn_Start_x + invBtnX;
-int mBinv_Btn_Stop_y = mBinv_Btn_Start_y + invBtnY;
-
-int mCinv_Btn_Start_x = mCuS_Btn_Start_x;
-int mCinv_Btn_Start_y = 200;
-int mCinv_Btn_Stop_x = mCinv_Btn_Start_x + invBtnX;
-int mCinv_Btn_Stop_y = mCinv_Btn_Start_y + invBtnY;
-
-/*--------Velocity Settings Screen-----------*/
-//Button Sizes
-int field2BtnX = 100;
-int field2BtnY = 40;
-
-int chgValBtnX = 40;
-int chgValBtnY = 40;
-
-float aAmt = 1;
-float bAmt = 1;
-float cAmt = 1;
-
-//Button Positioning
-int svAVal_Btn_Start_x = 30;
-int svAVal_Btn_Start_y = 40;
-int svAVal_Btn_Stop_x = svAVal_Btn_Start_x + fieldBtnX;
-int svAVal_Btn_Stop_y = svAVal_Btn_Start_y + fieldBtnY;
-
-int svBVal_Btn_Start_x = svAVal_Btn_Stop_x + 10;
-int svBVal_Btn_Start_y = svAVal_Btn_Stop_y + 40;
-int svBVal_Btn_Stop_x = svBVal_Btn_Start_x + fieldBtnX;
-int svBVal_Btn_Stop_y = svBVal_Btn_Start_y + fieldBtnY;
-
-int svCVal_Btn_Start_x = svBVal_Btn_Stop_x + 10;
-int svCVal_Btn_Start_y = svBVal_Btn_Stop_y + 40;
-int svCVal_Btn_Stop_x = svCVal_Btn_Start_x + fieldBtnX;
-int svCVal_Btn_Stop_y = svCVal_Btn_Start_y + fieldBtnY;
-
-int svADec_Btn_Start_x = svAVal_Btn_Stop_x + 10;
-int svADec_Btn_Start_y = svAVal_Btn_Start_y;
-int svADec_Btn_Stop_x = svADec_Btn_Start_x + chgValBtnX;
-int svADec_Btn_Stop_y = svADec_Btn_Start_y + chgValBtnY;
-
-int svBDec_Btn_Start_x = svBVal_Btn_Stop_x + 10;
-int svBDec_Btn_Start_y = svBVal_Btn_Start_y;
-int svBDec_Btn_Stop_x = svBDec_Btn_Start_x + chgValBtnX;
-int svBDec_Btn_Stop_y = svBDec_Btn_Start_y + chgValBtnY;
-
-int svCDec_Btn_Start_x = svCVal_Btn_Stop_x + 10;
-int svCDec_Btn_Start_y = svCVal_Btn_Start_y;
-int svCDec_Btn_Stop_x = svCDec_Btn_Start_x + chgValBtnX;
-int svCDec_Btn_Stop_y = svCDec_Btn_Start_y + chgValBtnY;
-
-int svAInc_Btn_Start_x = svADec_Btn_Stop_x + 5;
-int svAInc_Btn_Start_y = svAVal_Btn_Start_y;
-int svAInc_Btn_Stop_x = svAInc_Btn_Start_x + chgValBtnX;
-int svAInc_Btn_Stop_y = svAInc_Btn_Start_y + chgValBtnY;
-
-int svBInc_Btn_Start_x = svBDec_Btn_Stop_x + 5;
-int svBInc_Btn_Start_y = svBVal_Btn_Start_y;
-int svBInc_Btn_Stop_x = svBInc_Btn_Start_x + chgValBtnX;
-int svBInc_Btn_Stop_y = svBInc_Btn_Start_y + chgValBtnY;
-
-int svCInc_Btn_Start_x = svCDec_Btn_Stop_x + 5;
-int svCInc_Btn_Start_y = svCVal_Btn_Start_y;
-int svCInc_Btn_Stop_x = svCInc_Btn_Start_x + chgValBtnX;
-int svCInc_Btn_Stop_y = svCInc_Btn_Start_y + chgValBtnY;
-
-int svAamt_Btn_Start_x = svAInc_Btn_Stop_x + 25;
-int svAamt_Btn_Start_y = svAVal_Btn_Start_y;
-int svAamt_Btn_Stop_x = svAamt_Btn_Start_x + chgValBtnX;
-int svAamt_Btn_Stop_y = svAamt_Btn_Start_y + chgValBtnY;
-
-int svBamt_Btn_Start_x = svBInc_Btn_Stop_x + 25;
-int svBamt_Btn_Start_y = svBVal_Btn_Start_y;
-int svBamt_Btn_Stop_x = svBamt_Btn_Start_x + chgValBtnX;
-int svBamt_Btn_Stop_y = svBamt_Btn_Start_y + chgValBtnY;
-
-int svCamt_Btn_Start_x = svCInc_Btn_Stop_x + 25;
-int svCamt_Btn_Start_y = svCVal_Btn_Start_y;
-int svCamt_Btn_Stop_x = svCamt_Btn_Start_x + chgValBtnX;
-int svCamt_Btn_Stop_y = svCamt_Btn_Start_y + chgValBtnY;
-
-/*--------Acceleration Settings Screen-----------*/
-//Button Positioning
-int saAVal_Btn_Start_x = 30;
-int saAVal_Btn_Start_y = 40;
-int saAVal_Btn_Stop_x = saAVal_Btn_Start_x + fieldBtnX;
-int saAVal_Btn_Stop_y = saAVal_Btn_Start_y + fieldBtnY;
-
-int saBVal_Btn_Start_x = saAVal_Btn_Stop_x + 10;
-int saBVal_Btn_Start_y = saAVal_Btn_Stop_y + 40;
-int saBVal_Btn_Stop_x = saBVal_Btn_Start_x + fieldBtnX;
-int saBVal_Btn_Stop_y = saBVal_Btn_Start_y + fieldBtnY;
-
-int saCVal_Btn_Start_x = saBVal_Btn_Stop_x + 10;
-int saCVal_Btn_Start_y = saBVal_Btn_Stop_y + 40;
-int saCVal_Btn_Stop_x = saCVal_Btn_Start_x + fieldBtnX;
-int saCVal_Btn_Stop_y = saCVal_Btn_Start_y + fieldBtnY;
-
-int saADec_Btn_Start_x = saAVal_Btn_Stop_x + 10;
-int saADec_Btn_Start_y = saAVal_Btn_Start_y;
-int saADec_Btn_Stop_x = saADec_Btn_Start_x + chgValBtnX;
-int saADec_Btn_Stop_y = saADec_Btn_Start_y + chgValBtnY;
-
-int saBDec_Btn_Start_x = saBVal_Btn_Stop_x + 10;
-int saBDec_Btn_Start_y = saBVal_Btn_Start_y;
-int saBDec_Btn_Stop_x = saBDec_Btn_Start_x + chgValBtnX;
-int saBDec_Btn_Stop_y = saBDec_Btn_Start_y + chgValBtnY;
-
-int saCDec_Btn_Start_x = saCVal_Btn_Stop_x + 10;
-int saCDec_Btn_Start_y = saCVal_Btn_Start_y;
-int saCDec_Btn_Stop_x = saCDec_Btn_Start_x + chgValBtnX;
-int saCDec_Btn_Stop_y = saCDec_Btn_Start_y + chgValBtnY;
-
-int saAInc_Btn_Start_x = saADec_Btn_Stop_x + 5;
-int saAInc_Btn_Start_y = saAVal_Btn_Start_y;
-int saAInc_Btn_Stop_x = saAInc_Btn_Start_x + chgValBtnX;
-int saAInc_Btn_Stop_y = saAInc_Btn_Start_y + chgValBtnY;
-
-int saBInc_Btn_Start_x = saBDec_Btn_Stop_x + 5;
-int saBInc_Btn_Start_y = saBVal_Btn_Start_y;
-int saBInc_Btn_Stop_x = saBInc_Btn_Start_x + chgValBtnX;
-int saBInc_Btn_Stop_y = saBInc_Btn_Start_y + chgValBtnY;
-
-int saCInc_Btn_Start_x = saCDec_Btn_Stop_x + 5;
-int saCInc_Btn_Start_y = saCVal_Btn_Start_y;
-int saCInc_Btn_Stop_x = saCInc_Btn_Start_x + chgValBtnX;
-int saCInc_Btn_Stop_y = saCInc_Btn_Start_y + chgValBtnY;
-
-int saAamt_Btn_Start_x = saAInc_Btn_Stop_x + 25;
-int saAamt_Btn_Start_y = saAVal_Btn_Start_y;
-int saAamt_Btn_Stop_x = saAamt_Btn_Start_x + chgValBtnX;
-int saAamt_Btn_Stop_y = saAamt_Btn_Start_y + chgValBtnY;
-
-int saBamt_Btn_Start_x = saBInc_Btn_Stop_x + 25;
-int saBamt_Btn_Start_y = saBVal_Btn_Start_y;
-int saBamt_Btn_Stop_x = saBamt_Btn_Start_x + chgValBtnX;
-int saBamt_Btn_Stop_y = saBamt_Btn_Start_y + chgValBtnY;
-
-int saCamt_Btn_Start_x = saCInc_Btn_Stop_x + 25;
-int saCamt_Btn_Start_y = saCVal_Btn_Start_y;
-int saCamt_Btn_Stop_x = saCamt_Btn_Start_x + chgValBtnX;
-int saCamt_Btn_Stop_y = saCamt_Btn_Start_y + chgValBtnY;
-
-/*--------Jerk Settings Screen-----------*/
-//Button Positioning
-int sjAVal_Btn_Start_x = 30;
-int sjAVal_Btn_Start_y = 40;
-int sjAVal_Btn_Stop_x = sjAVal_Btn_Start_x + fieldBtnX;
-int sjAVal_Btn_Stop_y = sjAVal_Btn_Start_y + fieldBtnY;
-
-int sjBVal_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
-int sjBVal_Btn_Start_y = sjAVal_Btn_Stop_y + 40;
-int sjBVal_Btn_Stop_x = sjBVal_Btn_Start_x + fieldBtnX;
-int sjBVal_Btn_Stop_y = sjBVal_Btn_Start_y + fieldBtnY;
-
-int sjCVal_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
-int sjCVal_Btn_Start_y = sjBVal_Btn_Stop_y + 40;
-int sjCVal_Btn_Stop_x = sjCVal_Btn_Start_x + fieldBtnX;
-int sjCVal_Btn_Stop_y = sjCVal_Btn_Start_y + fieldBtnY;
-
-int sjADec_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
-int sjADec_Btn_Start_y = sjAVal_Btn_Start_y;
-int sjADec_Btn_Stop_x = sjADec_Btn_Start_x + chgValBtnX;
-int sjADec_Btn_Stop_y = sjADec_Btn_Start_y + chgValBtnY;
-
-int sjBDec_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
-int sjBDec_Btn_Start_y = sjBVal_Btn_Start_y;
-int sjBDec_Btn_Stop_x = sjBDec_Btn_Start_x + chgValBtnX;
-int sjBDec_Btn_Stop_y = sjBDec_Btn_Start_y + chgValBtnY;
-
-int sjCDec_Btn_Start_x = sjCVal_Btn_Stop_x + 10;
-int sjCDec_Btn_Start_y = sjCVal_Btn_Start_y;
-int sjCDec_Btn_Stop_x = sjCDec_Btn_Start_x + chgValBtnX;
-int sjCDec_Btn_Stop_y = sjCDec_Btn_Start_y + chgValBtnY;
-
-int sjAInc_Btn_Start_x = sjADec_Btn_Stop_x + 5;
-int sjAInc_Btn_Start_y = sjAVal_Btn_Start_y;
-int sjAInc_Btn_Stop_x = sjAInc_Btn_Start_x + chgValBtnX;
-int sjAInc_Btn_Stop_y = sjAInc_Btn_Start_y + chgValBtnY;
-
-int sjBInc_Btn_Start_x = sjBDec_Btn_Stop_x + 5;
-int sjBInc_Btn_Start_y = sjBVal_Btn_Start_y;
-int sjBInc_Btn_Stop_x = sjBInc_Btn_Start_x + chgValBtnX;
-int sjBInc_Btn_Stop_y = sjBInc_Btn_Start_y + chgValBtnY;
-
-int sjCInc_Btn_Start_x = sjCDec_Btn_Stop_x + 5;
-int sjCInc_Btn_Start_y = sjCVal_Btn_Start_y;
-int sjCInc_Btn_Stop_x = sjCInc_Btn_Start_x + chgValBtnX;
-int sjCInc_Btn_Stop_y = sjCInc_Btn_Start_y + chgValBtnY;
-
-int sjAamt_Btn_Start_x = sjAInc_Btn_Stop_x + 25;
-int sjAamt_Btn_Start_y = sjAVal_Btn_Start_y;
-int sjAamt_Btn_Stop_x = sjAamt_Btn_Start_x + chgValBtnX;
-int sjAamt_Btn_Stop_y = sjAamt_Btn_Start_y + chgValBtnY;
-
-int sjBamt_Btn_Start_x = sjBInc_Btn_Stop_x + 25;
-int sjBamt_Btn_Start_y = sjBVal_Btn_Start_y;
-int sjBamt_Btn_Stop_x = sjBamt_Btn_Start_x + chgValBtnX;
-int sjBamt_Btn_Stop_y = sjBamt_Btn_Start_y + chgValBtnY;
-
-int sjCamt_Btn_Start_x = sjCInc_Btn_Stop_x + 25;
-int sjCamt_Btn_Start_y = sjCVal_Btn_Start_y;
-int sjCamt_Btn_Stop_x = sjCamt_Btn_Start_x + chgValBtnX;
-int sjCamt_Btn_Stop_y = sjCamt_Btn_Start_y + chgValBtnY;
-
-/*--------Steps/mm Settings Screen-----------*/
-//Button Positioning
-int ssmmAVal_Btn_Start_x = 30;
-int ssmmAVal_Btn_Start_y = 40;
-int ssmmAVal_Btn_Stop_x = ssmmAVal_Btn_Start_x + fieldBtnX;
-int ssmmAVal_Btn_Stop_y = ssmmAVal_Btn_Start_y + fieldBtnY;
-
-int ssmmBVal_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
-int ssmmBVal_Btn_Start_y = ssmmAVal_Btn_Stop_y + 40;
-int ssmmBVal_Btn_Stop_x = ssmmBVal_Btn_Start_x + fieldBtnX;
-int ssmmBVal_Btn_Stop_y = ssmmBVal_Btn_Start_y + fieldBtnY;
-
-int ssmmCVal_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
-int ssmmCVal_Btn_Start_y = ssmmBVal_Btn_Stop_y + 40;
-int ssmmCVal_Btn_Stop_x = ssmmCVal_Btn_Start_x + fieldBtnX;
-int ssmmCVal_Btn_Stop_y = ssmmCVal_Btn_Start_y + fieldBtnY;
-
-int ssmmADec_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
-int ssmmADec_Btn_Start_y = ssmmAVal_Btn_Start_y;
-int ssmmADec_Btn_Stop_x = ssmmADec_Btn_Start_x + chgValBtnX;
-int ssmmADec_Btn_Stop_y = ssmmADec_Btn_Start_y + chgValBtnY;
-
-int ssmmBDec_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
-int ssmmBDec_Btn_Start_y = ssmmBVal_Btn_Start_y;
-int ssmmBDec_Btn_Stop_x = ssmmBDec_Btn_Start_x + chgValBtnX;
-int ssmmBDec_Btn_Stop_y = ssmmBDec_Btn_Start_y + chgValBtnY;
-
-int ssmmCDec_Btn_Start_x = ssmmCVal_Btn_Stop_x + 10;
-int ssmmCDec_Btn_Start_y = ssmmCVal_Btn_Start_y;
-int ssmmCDec_Btn_Stop_x = ssmmCDec_Btn_Start_x + chgValBtnX;
-int ssmmCDec_Btn_Stop_y = ssmmCDec_Btn_Start_y + chgValBtnY;
-
-int ssmmAInc_Btn_Start_x = ssmmADec_Btn_Stop_x + 5;
-int ssmmAInc_Btn_Start_y = ssmmAVal_Btn_Start_y;
-int ssmmAInc_Btn_Stop_x = ssmmAInc_Btn_Start_x + chgValBtnX;
-int ssmmAInc_Btn_Stop_y = ssmmAInc_Btn_Start_y + chgValBtnY;
-
-int ssmmBInc_Btn_Start_x = ssmmBDec_Btn_Stop_x + 5;
-int ssmmBInc_Btn_Start_y = ssmmBVal_Btn_Start_y;
-int ssmmBInc_Btn_Stop_x = ssmmBInc_Btn_Start_x + chgValBtnX;
-int ssmmBInc_Btn_Stop_y = ssmmBInc_Btn_Start_y + chgValBtnY;
-
-int ssmmCInc_Btn_Start_x = ssmmCDec_Btn_Stop_x + 5;
-int ssmmCInc_Btn_Start_y = ssmmCVal_Btn_Start_y;
-int ssmmCInc_Btn_Stop_x = ssmmCInc_Btn_Start_x + chgValBtnX;
-int ssmmCInc_Btn_Stop_y = ssmmCInc_Btn_Start_y + chgValBtnY;
-
-int ssmmAamt_Btn_Start_x = ssmmAInc_Btn_Stop_x + 25;
-int ssmmAamt_Btn_Start_y = ssmmAVal_Btn_Start_y;
-int ssmmAamt_Btn_Stop_x = ssmmAamt_Btn_Start_x + chgValBtnX;
-int ssmmAamt_Btn_Stop_y = ssmmAamt_Btn_Start_y + chgValBtnY;
-
-int ssmmBamt_Btn_Start_x = ssmmBInc_Btn_Stop_x + 25;
-int ssmmBamt_Btn_Start_y = ssmmBVal_Btn_Start_y;
-int ssmmBamt_Btn_Stop_x = ssmmBamt_Btn_Start_x + chgValBtnX;
-int ssmmBamt_Btn_Stop_y = ssmmBamt_Btn_Start_y + chgValBtnY;
-
-int ssmmCamt_Btn_Start_x = ssmmCInc_Btn_Stop_x + 25;
-int ssmmCamt_Btn_Start_y = ssmmCVal_Btn_Start_y;
-int ssmmCamt_Btn_Stop_x = ssmmCamt_Btn_Start_x + chgValBtnX;
-int ssmmCamt_Btn_Stop_y = ssmmCamt_Btn_Start_y + chgValBtnY;
-
-/*--------Data Entry Screen-----------*/
-//Button Sizes
-int numBtnX = 153;
-int numBtnY = 58;
-
-//Button Positioning
-int numDel_Btn_Start_x = 480 - xPadding - (numBtnX / 2);
-int numDel_Btn_Start_y = yPadding;
-int numDel_Btn_Stop_x = numDel_Btn_Start_x + (numBtnX / 2);
-int numDel_Btn_Stop_y = numDel_Btn_Start_y + numBtnY;
-
-int numLett_Btn_Start_x = xPadding;
-int numLett_Btn_Start_y = yPadding;
-int numLett_Btn_Stop_x = numLett_Btn_Start_x + (numBtnX / 2);
-int numLett_Btn_Stop_y = numLett_Btn_Start_y + numBtnY;
-
-int num1_Btn_Start_x = xPadding;
-int num1_Btn_Start_y = yPadding + numBtnY + yPadding;
-int num1_Btn_Stop_x = num1_Btn_Start_x + numBtnX;
-int num1_Btn_Stop_y = num1_Btn_Start_y + numBtnY;
-
-int num2_Btn_Start_x = xPadding + numBtnX + xPadding;
-int num2_Btn_Start_y = yPadding + numBtnY + yPadding;
-int num2_Btn_Stop_x = num2_Btn_Start_x + numBtnX;
-int num2_Btn_Stop_y = num2_Btn_Start_y + numBtnY;
-
-int num3_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
-int num3_Btn_Start_y = yPadding + numBtnY + yPadding;
-int num3_Btn_Stop_x = num3_Btn_Start_x + numBtnX;
-int num3_Btn_Stop_y = num3_Btn_Start_y + numBtnY;
-
-int num4_Btn_Start_x = xPadding;
-int num4_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num4_Btn_Stop_x = num4_Btn_Start_x + numBtnX;
-int num4_Btn_Stop_y = num4_Btn_Start_y + numBtnY;
-
-int num5_Btn_Start_x = xPadding + numBtnX + xPadding;
-int num5_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num5_Btn_Stop_x = num5_Btn_Start_x + numBtnX;
-int num5_Btn_Stop_y = num5_Btn_Start_y + numBtnY;
-
-int num6_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
-int num6_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num6_Btn_Stop_x = num6_Btn_Start_x + numBtnX;
-int num6_Btn_Stop_y = num6_Btn_Start_y + numBtnY;
-
-int num7_Btn_Start_x = xPadding;
-int num7_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num7_Btn_Stop_x = num7_Btn_Start_x + numBtnX;
-int num7_Btn_Stop_y = num7_Btn_Start_y + numBtnY;
-
-int num8_Btn_Start_x = xPadding + numBtnX + xPadding;
-int num8_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num8_Btn_Stop_x = num8_Btn_Start_x + numBtnX;
-int num8_Btn_Stop_y = num8_Btn_Start_y + numBtnY;
-
-int num9_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
-int num9_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int num9_Btn_Stop_x = num9_Btn_Start_x + numBtnX;
-int num9_Btn_Stop_y = num9_Btn_Start_y + numBtnY;
-
-int numBck_Btn_Start_x = xPadding;
-int numBck_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int numBck_Btn_Stop_x = numBck_Btn_Start_x + numBtnX;
-int numBck_Btn_Stop_y = numBck_Btn_Start_y + numBtnY;
-
-int numPd_Btn_Start_x = xPadding + numBtnX + xPadding;
-int numPd_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int numPd_Btn_Stop_x = numPd_Btn_Start_x + numBtnX;
-int numPd_Btn_Stop_y = numPd_Btn_Start_y + numBtnY;
-
-int numOk_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
-int numOk_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
-int numOk_Btn_Stop_x = numOk_Btn_Start_x + numBtnX;
-int numOk_Btn_Stop_y = numOk_Btn_Start_y + numBtnY;
-/*------------------------------------*/
-/*******************/
-
-void setup() {
-  pinMode(XM, OUTPUT);
-  pinMode(YP, OUTPUT);
-
-  pinMode(pulseA, OUTPUT);
-  pinMode(pulseB, OUTPUT);
-  pinMode(pulseC, OUTPUT);
-  pinMode(dirA, OUTPUT);
-  pinMode(dirB, OUTPUT);
-  pinMode(dirC, OUTPUT);
+		
+//#region Main Screen
+	//Button States
+	boolean loadBtnFlag = false;
+	boolean newBtnFlag = false;
+	boolean editBtnFlag = false;
+	boolean setBtnFlag = false;
+	boolean tClampBtnFlag = false;
+	boolean bClampBtnFlag = false;
+	boolean homeBtnFlag = false;
+	boolean prevBtnFlag = false;
+	boolean nextBtnFlag = false;
+	boolean togMotBtnFlag = false;
+	boolean upTBtnFlag = false;
+	boolean downTBtnFlag = false;
+	boolean upBBtnFlag = false;
+	boolean downBBtnFlag = false;
+	boolean inBtnFlag = false;
+	boolean outBtnFlag = false;
+	boolean amountBtnFlag = false;
+	
+	//Button Dimensions
+	int xPadding = 5;
+	int yPadding = 5;
+
+	int configBtnX = 137;
+	int configBtnY = 40;
+
+	int settingBtnX = 40;
+	int settingBtnY = 40;
+
+	int clampBtnX = 105;
+	int clampBtnY = 120;
+
+	int homeBtnX = 40;
+	int homeBtnY = 40;
+
+	int mStepBtnX = 40;
+	int mStepBtnY = 40;
+
+	int mEnBtnX = 100;
+	int mEnBtnY = 245;
+
+	int manualBtnX = 40;
+	int manualBtnY = 40;
+	
+	//Button Variables
+	float moveAmount = 0.1;
+	
+	//Button Positioning
+	int load_Btn_Start_x = xPadding;
+	int load_Btn_Start_y = yPadding;
+	int load_Btn_Stop_x = load_Btn_Start_x + configBtnX;
+	int load_Btn_Stop_y = load_Btn_Start_y + configBtnY;  
+
+	int new_Btn_Start_x = (xPadding*2) + (configBtnX);
+	int new_Btn_Start_y = yPadding;
+	int new_Btn_Stop_x = new_Btn_Start_x + configBtnX;
+	int new_Btn_Stop_y = new_Btn_Start_y + configBtnY;
+
+	int edit_Btn_Start_x = (xPadding*3) + (configBtnX*2);
+	int edit_Btn_Start_y = yPadding;
+	int edit_Btn_Stop_x = edit_Btn_Start_x + configBtnX;
+	int edit_Btn_Stop_y = edit_Btn_Start_y + configBtnY;
+
+	int set_Btn_Start_x = (xPadding*4) + (configBtnX*3);
+	int set_Btn_Start_y = yPadding;
+	int set_Btn_Stop_x = set_Btn_Start_x + settingBtnX;
+	int set_Btn_Stop_y = set_Btn_Start_y + settingBtnY;
+
+	int top_clamp_Btn_Start_x = 365;
+	int top_clamp_Btn_Start_y = (yPadding*3) + settingBtnY + 15;
+	int top_clamp_Btn_Stop_x = top_clamp_Btn_Start_x + clampBtnX;
+	int top_clamp_Btn_Stop_y =top_clamp_Btn_Start_y + clampBtnY;
+
+	int bot_clamp_Btn_Start_x = 365;
+	int bot_clamp_Btn_Start_y = (yPadding*4) + settingBtnY + clampBtnY + 15;
+	int bot_clamp_Btn_Stop_x = bot_clamp_Btn_Start_x + clampBtnX;
+	int bot_clamp_Btn_Stop_y = bot_clamp_Btn_Start_y + clampBtnY;
+
+	int home_Btn_Start_x = xPadding;
+	int home_Btn_Start_y = bot_clamp_Btn_Stop_y - homeBtnY;
+	int home_Btn_Stop_x = home_Btn_Start_x + homeBtnX;
+	int home_Btn_Stop_y = home_Btn_Start_y + homeBtnY;
+
+	int prev_Btn_Start_x = (xPadding*2) + homeBtnX + 25;
+	int prev_Btn_Start_y = bot_clamp_Btn_Stop_y - mStepBtnY;
+	int prev_Btn_Stop_x = prev_Btn_Start_x + mStepBtnX;
+	int prev_Btn_Stop_y = prev_Btn_Start_y + mStepBtnY;
+
+	int next_Btn_Start_x = 355 - mEnBtnX - mStepBtnX;
+	int next_Btn_Start_y = bot_clamp_Btn_Stop_y - mStepBtnY;
+	int next_Btn_Stop_x = next_Btn_Start_x + mStepBtnX;
+	int next_Btn_Stop_y = next_Btn_Start_y + mStepBtnY;
+
+	int mEN_Btn_Start_x = 360 - mEnBtnX;
+	int mEN_Btn_Start_y = (yPadding*3) + settingBtnY + 15;
+	int mEN_Btn_Stop_x = mEN_Btn_Start_x + mEnBtnX;
+	int mEN_Btn_Stop_y = mEN_Btn_Start_y + mEnBtnY;
+
+	int upT_Btn_Start_x = (xPadding * 3) + manualBtnX;
+	int upT_Btn_Start_y = (yPadding*8) + settingBtnY + 100;
+	int upT_Btn_Stop_x = upT_Btn_Start_x + manualBtnX;
+	int upT_Btn_Stop_y = upT_Btn_Start_y + manualBtnY;
+
+	int downT_Btn_Start_x = upT_Btn_Start_x;
+	int downT_Btn_Start_y = upT_Btn_Stop_y + yPadding;
+	int downT_Btn_Stop_x = downT_Btn_Start_x + manualBtnX;
+	int downT_Btn_Stop_y = downT_Btn_Start_y + manualBtnY;
+
+	int upB_Btn_Start_x = (xPadding * 4) + (manualBtnX * 2);
+	int upB_Btn_Start_y = (yPadding*8) + settingBtnY + 100;
+	int upB_Btn_Stop_x = upB_Btn_Start_x + manualBtnX;
+	int upB_Btn_Stop_y = upB_Btn_Start_y + manualBtnY;
+
+	int downB_Btn_Start_x = upB_Btn_Start_x;
+	int downB_Btn_Start_y = upB_Btn_Stop_y + yPadding;
+	int downB_Btn_Stop_x = downB_Btn_Start_x + manualBtnX;
+	int downB_Btn_Stop_y = downB_Btn_Start_y + manualBtnY;
+
+	int in_Btn_Start_x = upT_Btn_Start_x - manualBtnX - xPadding;
+	int in_Btn_Start_y = upT_Btn_Start_y + (manualBtnY/2) + yPadding;
+	int in_Btn_Stop_x = in_Btn_Start_x + manualBtnX;
+	int in_Btn_Stop_y = in_Btn_Start_y + manualBtnY;
+
+	int out_Btn_Start_x = upB_Btn_Stop_x + xPadding;
+	int out_Btn_Start_y = upB_Btn_Start_y + (manualBtnY/2) + yPadding;
+	int out_Btn_Stop_x = out_Btn_Start_x + manualBtnX;
+	int out_Btn_Stop_y = out_Btn_Start_y + manualBtnY;
+
+	int amount_Btn_Start_x = mEN_Btn_Start_x - (xPadding * 2) - manualBtnX;
+	int amount_Btn_Start_y = out_Btn_Start_y;
+	int amount_Btn_Stop_x = amount_Btn_Start_x + manualBtnX;
+	int amount_Btn_Stop_y = amount_Btn_Start_y + manualBtnY;
+//#endregion
+
+//#region InputScreen
+	//Button States
+	boolean delBtnFlag = false;
+	boolean lettBtnFlag = false;
+	boolean n1BtnFlag = false;
+	boolean n2BtnFlag = false;
+	boolean n3BtnFlag = false;
+	boolean n4BtnFlag = false;
+	boolean n5BtnFlag = false;
+	boolean n6BtnFlag = false;
+	boolean n7BtnFlag = false;
+	boolean n8BtnFlag = false;
+	boolean n9BtnFlag = false;
+	boolean backBtnFlag = false;
+	boolean decimalBtnFlag = false;
+	boolean okBtnFlag = false;
+	
+	//Button Dimensions
+	int numBtnX = 153;
+	int numBtnY = 58;
+
+	//Button Positioning
+	int numDel_Btn_Start_x = 480 - xPadding - (numBtnX / 2);
+	int numDel_Btn_Start_y = yPadding;
+	int numDel_Btn_Stop_x = numDel_Btn_Start_x + (numBtnX / 2);
+	int numDel_Btn_Stop_y = numDel_Btn_Start_y + numBtnY;
+
+	int numLett_Btn_Start_x = xPadding;
+	int numLett_Btn_Start_y = yPadding;
+	int numLett_Btn_Stop_x = numLett_Btn_Start_x + (numBtnX / 2);
+	int numLett_Btn_Stop_y = numLett_Btn_Start_y + numBtnY;
+
+	int num1_Btn_Start_x = xPadding;
+	int num1_Btn_Start_y = yPadding + numBtnY + yPadding;
+	int num1_Btn_Stop_x = num1_Btn_Start_x + numBtnX;
+	int num1_Btn_Stop_y = num1_Btn_Start_y + numBtnY;
+
+	int num2_Btn_Start_x = xPadding + numBtnX + xPadding;
+	int num2_Btn_Start_y = yPadding + numBtnY + yPadding;
+	int num2_Btn_Stop_x = num2_Btn_Start_x + numBtnX;
+	int num2_Btn_Stop_y = num2_Btn_Start_y + numBtnY;
+
+	int num3_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
+	int num3_Btn_Start_y = yPadding + numBtnY + yPadding;
+	int num3_Btn_Stop_x = num3_Btn_Start_x + numBtnX;
+	int num3_Btn_Stop_y = num3_Btn_Start_y + numBtnY;
+
+	int num4_Btn_Start_x = xPadding;
+	int num4_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num4_Btn_Stop_x = num4_Btn_Start_x + numBtnX;
+	int num4_Btn_Stop_y = num4_Btn_Start_y + numBtnY;
+
+	int num5_Btn_Start_x = xPadding + numBtnX + xPadding;
+	int num5_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num5_Btn_Stop_x = num5_Btn_Start_x + numBtnX;
+	int num5_Btn_Stop_y = num5_Btn_Start_y + numBtnY;
+
+	int num6_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
+	int num6_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num6_Btn_Stop_x = num6_Btn_Start_x + numBtnX;
+	int num6_Btn_Stop_y = num6_Btn_Start_y + numBtnY;
+
+	int num7_Btn_Start_x = xPadding;
+	int num7_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num7_Btn_Stop_x = num7_Btn_Start_x + numBtnX;
+	int num7_Btn_Stop_y = num7_Btn_Start_y + numBtnY;
+
+	int num8_Btn_Start_x = xPadding + numBtnX + xPadding;
+	int num8_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num8_Btn_Stop_x = num8_Btn_Start_x + numBtnX;
+	int num8_Btn_Stop_y = num8_Btn_Start_y + numBtnY;
+
+	int num9_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
+	int num9_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int num9_Btn_Stop_x = num9_Btn_Start_x + numBtnX;
+	int num9_Btn_Stop_y = num9_Btn_Start_y + numBtnY;
+
+	int numBck_Btn_Start_x = xPadding;
+	int numBck_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int numBck_Btn_Stop_x = numBck_Btn_Start_x + numBtnX;
+	int numBck_Btn_Stop_y = numBck_Btn_Start_y + numBtnY;
+
+	int numPd_Btn_Start_x = xPadding + numBtnX + xPadding;
+	int numPd_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int numPd_Btn_Stop_x = numPd_Btn_Start_x + numBtnX;
+	int numPd_Btn_Stop_y = numPd_Btn_Start_y + numBtnY;
+
+	int numOk_Btn_Start_x = xPadding + numBtnX + xPadding + numBtnX + xPadding;
+	int numOk_Btn_Start_y = yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding + numBtnY + yPadding;
+	int numOk_Btn_Stop_x = numOk_Btn_Start_x + numBtnX;
+	int numOk_Btn_Stop_y = numOk_Btn_Start_y + numBtnY;
+//#endregion
+
+//#region	Load Profile Screen
+	//Button States	
+	boolean pBackBtnFlag = false;
+	boolean pCfmBtnFlag = false;
+	boolean p1BtnFlag = false;
+	boolean p2BtnFlag = false;
+	boolean p3BtnFlag = false;
+	boolean p4BtnFlag = false;
+	boolean p5BtnFlag = false;
+	boolean p6BtnFlag = false;
+	boolean p7BtnFlag = false;
+	boolean p8BtnFlag = false;
+	boolean p9BtnFlag = false;
+	boolean p10BtnFlag = false;
+	
+	//Button Dimensions
+	int backBtnX = 80;
+	int backBtnY = 40;
+
+	int confirmBtnX = 40;
+	int confirmBtnY = 40;
+
+	int profileBtnX = 40;
+	int profileBtnY = 80;
+	
+	//Button Positioning
+	int pBack_Btn_Start_x = xPadding;
+	int pBack_Btn_Start_y = yPadding;
+	int pBack_Btn_Stop_x = pBack_Btn_Start_x + backBtnX;
+	int pBack_Btn_Stop_y = pBack_Btn_Start_y + backBtnY;
+
+	int pCfm_Btn_Start_x = 320 - xPadding - confirmBtnX;
+	int pCfm_Btn_Start_y = 480 - xPadding - confirmBtnY;
+	int pCfm_Btn_Stop_x = pCfm_Btn_Start_x + confirmBtnX;
+	int pCfm_Btn_Stop_y = pCfm_Btn_Start_y + confirmBtnY;
+
+	int p1_Btn_Start_x = xPadding + backBtnX + xPadding;
+	int p1_Btn_Start_y = yPadding + 25;
+	int p1_Btn_Stop_x = p1_Btn_Start_x + profileBtnX;
+	int p1_Btn_Stop_y = p1_Btn_Start_y + profileBtnY;
+
+	int p2_Btn_Start_x = p1_Btn_Stop_x + xPadding;
+	int p2_Btn_Start_y = p1_Btn_Start_y;
+	int p2_Btn_Stop_x = p2_Btn_Start_x + profileBtnX;
+	int p2_Btn_Stop_y = p2_Btn_Start_y + profileBtnY;
+
+	int p3_Btn_Start_x = p2_Btn_Start_x + xPadding;
+	int p3_Btn_Start_y = p1_Btn_Start_y;
+	int p3_Btn_Stop_x = p3_Btn_Start_x + profileBtnX;
+	int p3_Btn_Stop_y = p3_Btn_Start_y + profileBtnY;
+
+	int p4_Btn_Start_x = p3_Btn_Start_x + xPadding;
+	int p4_Btn_Start_y = p1_Btn_Start_y;
+	int p4_Btn_Stop_x = p4_Btn_Start_x + profileBtnX;
+	int p4_Btn_Stop_y = p4_Btn_Start_y + profileBtnY;
+
+	int p5_Btn_Start_x = p4_Btn_Start_x + xPadding;
+	int p5_Btn_Start_y = p1_Btn_Start_y;
+	int p5_Btn_Stop_x = p5_Btn_Start_x + profileBtnX;
+	int p5_Btn_Stop_y = p5_Btn_Start_y + profileBtnY;
+
+	int p6_Btn_Start_x = p1_Btn_Start_x;
+	int p6_Btn_Start_y = p1_Btn_Stop_y + yPadding;
+	int p6_Btn_Stop_x = p6_Btn_Start_x + profileBtnX;
+	int p6_Btn_Stop_y = p6_Btn_Start_y + profileBtnY;
+
+	int p7_Btn_Start_x = p1_Btn_Stop_x + xPadding;
+	int p7_Btn_Start_y = p1_Btn_Stop_y + yPadding;
+	int p7_Btn_Stop_x = p7_Btn_Start_x + profileBtnX;
+	int p7_Btn_Stop_y = p7_Btn_Start_y + profileBtnY;
+
+	int p8_Btn_Start_x = p2_Btn_Start_x + xPadding;
+	int p8_Btn_Start_y = p1_Btn_Stop_y + yPadding;
+	int p8_Btn_Stop_x = p8_Btn_Start_x + profileBtnX;
+	int p8_Btn_Stop_y = p8_Btn_Start_y + profileBtnY;
+
+	int p9_Btn_Start_x = p3_Btn_Start_x + xPadding;
+	int p9_Btn_Start_y = p1_Btn_Stop_y + yPadding;
+	int p9_Btn_Stop_x = p9_Btn_Start_x + profileBtnX;
+	int p9_Btn_Stop_y = p9_Btn_Start_y + profileBtnY;
+
+	int p10_Btn_Start_x = p4_Btn_Start_x + xPadding;
+	int p10_Btn_Start_y = p1_Btn_Stop_y + yPadding;
+	int p10_Btn_Stop_x = p10_Btn_Start_x + profileBtnX;
+	int p10_Btn_Stop_y = p10_Btn_Start_y + profileBtnY;
+//#endregion
+
+//#region New Profile Screen
+	//Button States
+	boolean pnNameBtnFlag = false;
+	boolean pnTClampBtnFlag = false;
+	boolean pnBClampBtnFlag = false;
+	boolean pnFChBtnFlag = false;
+	boolean pnStp1BtnFlag = false;
+	boolean pnStp2BtnFlag = false;
+	boolean pnStp3BtnFlag = false;
+	boolean pnStp4BtnFlag = false;
+	boolean pnStp5BtnFlag = false;
+	boolean pnBckBtnFlag = false;
+	boolean pnSaveBtnFlag = false;
+	
+	//Button Dimensions
+	int fieldBtnX = 100;
+	int fieldBtnY = 40;
+
+	int stepBtnX = 25;
+	int stepBtnY = 25;
+
+	int saveBtnX = 80;
+	int saveBtnY = 40;
+	
+	//Button Positioning
+	int pnName_Btn_Start_x = xPadding + 50;
+	int pnName_Btn_Start_y = 50;
+	int pnName_Btn_Stop_x = pnName_Btn_Start_x + fieldBtnX;
+	int pnName_Btn_Stop_y = pnName_Btn_Start_y + fieldBtnY;
+
+	int pnTClamp_Btn_Start_x = xPadding + 50;
+	int pnTClamp_Btn_Start_y = pnName_Btn_Stop_y + yPadding + 15;
+	int pnTClamp_Btn_Stop_x = pnTClamp_Btn_Start_x + fieldBtnX;
+	int pnTClamp_Btn_Stop_y = pnTClamp_Btn_Start_y + fieldBtnY;
+
+	int pnBClamp_Btn_Start_x = xPadding + 50;
+	int pnBClamp_Btn_Start_y = pnTClamp_Btn_Stop_y + yPadding + 15;
+	int pnBClamp_Btn_Stop_x = pnBClamp_Btn_Start_x + fieldBtnX;
+	int pnBClamp_Btn_Stop_y = pnBClamp_Btn_Start_y + fieldBtnY;
+
+	int pnFCh_Btn_Start_x = xPadding + 50;
+	int pnFCh_Btn_Start_y = pnBClamp_Btn_Stop_y + yPadding + 15;
+	int pnFCh_Btn_Stop_x = pnFCh_Btn_Start_x + fieldBtnX;
+	int pnFCh_Btn_Stop_y = pnFCh_Btn_Start_y + fieldBtnY;
+
+	int pnStp1_Btn_Start_x = xPadding + 100;
+	int pnStp1_Btn_Start_y = pnFCh_Btn_Stop_y + yPadding + 30;
+	int pnStp1_Btn_Stop_x = pnStp1_Btn_Start_x + stepBtnX;
+	int pnStp1_Btn_Stop_y = pnStp1_Btn_Start_y + stepBtnY;
+
+	int pnStp2_Btn_Start_x = xPadding + pnStp1_Btn_Stop_x;
+	int pnStp2_Btn_Start_y = pnStp1_Btn_Start_y;
+	int pnStp2_Btn_Stop_x = pnStp2_Btn_Start_x + stepBtnX;
+	int pnStp2_Btn_Stop_y = pnStp2_Btn_Start_y + stepBtnY;
+
+	int pnStp3_Btn_Start_x = xPadding + pnStp2_Btn_Start_x;
+	int pnStp3_Btn_Start_y = pnStp1_Btn_Start_y;
+	int pnStp3_Btn_Stop_x = pnStp3_Btn_Start_x + stepBtnX;
+	int pnStp3_Btn_Stop_y = pnStp3_Btn_Start_y + stepBtnY;
+
+	int pnStp4_Btn_Start_x = xPadding + pnStp3_Btn_Start_x;
+	int pnStp4_Btn_Start_y = pnStp1_Btn_Start_y;
+	int pnStp4_Btn_Stop_x = pnStp4_Btn_Start_x + stepBtnX;
+	int pnStp4_Btn_Stop_y = pnStp4_Btn_Start_y + stepBtnY;
+
+	int pnStp5_Btn_Start_x = xPadding + pnStp4_Btn_Start_x;
+	int pnStp5_Btn_Start_y = pnStp1_Btn_Start_y;
+	int pnStp5_Btn_Stop_x = pnStp5_Btn_Start_x + stepBtnX;
+	int pnStp5_Btn_Stop_y = pnStp5_Btn_Start_y + stepBtnY;
+
+	int pnBck_Btn_Start_x = xPadding;
+	int pnBck_Btn_Start_y = 320 - yPadding - backBtnY;
+	int pnBck_Btn_Stop_x = pnBck_Btn_Start_x + backBtnX;
+	int pnBck_Btn_Stop_y = pnBck_Btn_Start_y + backBtnY;
+
+	int pnSave_Btn_Start_x = 480 - xPadding - saveBtnX;
+	int pnSave_Btn_Start_y = 320 - yPadding - backBtnY;
+	int pnSave_Btn_Stop_x = pnSave_Btn_Start_x + saveBtnX;
+	int pnSave_Btn_Stop_y = pnSave_Btn_Start_y + saveBtnY;
+//#endregion
+
+//#region Edit Profile Screen
+	//Button States
+	//Same as 'New Profile Screen'
+	
+	//Button Dimensions
+	//Same as 'New Profile Screen'
+	
+	//Button Positioning
+	//Same as 'New Profile Screen'
+//#endregion
+
+//#region Machine Settings Screen
+	//Button States
+	boolean sVelBtnFlag = false;
+	boolean sAccelBtnFlag = false;
+	boolean sJerkBtnFlag = false;
+	boolean sUSBtnFlag = false;
+	boolean sSmmBtnFlag = false;
+	boolean sRstBtnFlag = false;
+	
+	//Button Dimensions
+	int setgBtnX = 152;
+	int setgBtnY = 110;
+
+	//Button Positioning
+	int sVel_Btn_Start_x = xPadding;
+	int sVel_Btn_Start_y = 45;
+	int sVel_Btn_Stop_x = sVel_Btn_Start_x + setgBtnX;
+	int sVel_Btn_Stop_y = sVel_Btn_Start_y + setgBtnY;
+
+	int sAccel_Btn_Start_x = (480 / 2) - (setgBtnX / 2);
+	int sAccel_Btn_Start_y = 45;
+	int sAccel_Btn_Stop_x = sAccel_Btn_Start_x + setgBtnX;
+	int sAccel_Btn_Stop_y = sAccel_Btn_Start_y + setgBtnY;
+
+	int sJerk_Btn_Start_x = 480 - xPadding - setgBtnX;
+	int sJerk_Btn_Start_y = 45;
+	int sJerk_Btn_Stop_x = sJerk_Btn_Start_x + setgBtnX;
+	int sJerk_Btn_Stop_y = sJerk_Btn_Start_y + setgBtnY;
+
+	int sUS_Btn_Start_x = sVel_Btn_Start_x;
+	int sUS_Btn_Start_y = sVel_Btn_Stop_y + 5;
+	int sUS_Btn_Stop_x = sUS_Btn_Start_x + setgBtnX;
+	int sUS_Btn_Stop_y = sUS_Btn_Start_y + setgBtnY;
+
+	int sSmm_Btn_Start_x = sAccel_Btn_Start_x;
+	int sSmm_Btn_Start_y = sVel_Btn_Stop_y + 5;
+	int sSmm_Btn_Stop_x = sSmm_Btn_Start_x + setgBtnX;
+	int sSmm_Btn_Stop_y = sSmm_Btn_Start_y + setgBtnY;
+
+	int sRst_Btn_Start_x = sJerk_Btn_Start_x;
+	int sRst_Btn_Start_y = sVel_Btn_Stop_y + 5;
+	int sRst_Btn_Stop_x = sRst_Btn_Start_x + setgBtnX;
+	int sRst_Btn_Stop_y = sRst_Btn_Start_y + setgBtnY;
+//#endregion
+
+//#region Velocity Settings Screen
+	//Button States
+	boolean svAValBtnFlag = false;
+	boolean svBValBtnFlag = false;
+	boolean svCValBtnFlag = false;
+	boolean svADecBtnFlag = false;
+	boolean svBDecBtnFlag = false;
+	boolean svCDecBtnFlag = false;
+	boolean svAIncBtnFlag = false;
+	boolean svBIncBtnFlag = false;
+	boolean svCIncBtnFlag = false;
+	boolean svAamtBtnFlag = false;
+	boolean svBamtBtnFlag = false;
+	boolean svCamtBtnFlag = false;
+	
+	//Button Dimensions
+	int field2BtnX = 100;
+	int field2BtnY = 40;
+
+	int chgValBtnX = 40;
+	int chgValBtnY = 40;
+
+	//Button Values
+	float aAmt = 1;
+	float bAmt = 1;
+	float cAmt = 1;
+
+	//Button Positioning
+	int svAVal_Btn_Start_x = 30;
+	int svAVal_Btn_Start_y = 40;
+	int svAVal_Btn_Stop_x = svAVal_Btn_Start_x + fieldBtnX;
+	int svAVal_Btn_Stop_y = svAVal_Btn_Start_y + fieldBtnY;
+
+	int svBVal_Btn_Start_x = svAVal_Btn_Stop_x + 10;
+	int svBVal_Btn_Start_y = svAVal_Btn_Stop_y + 40;
+	int svBVal_Btn_Stop_x = svBVal_Btn_Start_x + fieldBtnX;
+	int svBVal_Btn_Stop_y = svBVal_Btn_Start_y + fieldBtnY;
+
+	int svCVal_Btn_Start_x = svBVal_Btn_Stop_x + 10;
+	int svCVal_Btn_Start_y = svBVal_Btn_Stop_y + 40;
+	int svCVal_Btn_Stop_x = svCVal_Btn_Start_x + fieldBtnX;
+	int svCVal_Btn_Stop_y = svCVal_Btn_Start_y + fieldBtnY;
+
+	int svADec_Btn_Start_x = svAVal_Btn_Stop_x + 10;
+	int svADec_Btn_Start_y = svAVal_Btn_Start_y;
+	int svADec_Btn_Stop_x = svADec_Btn_Start_x + chgValBtnX;
+	int svADec_Btn_Stop_y = svADec_Btn_Start_y + chgValBtnY;
+
+	int svBDec_Btn_Start_x = svBVal_Btn_Stop_x + 10;
+	int svBDec_Btn_Start_y = svBVal_Btn_Start_y;
+	int svBDec_Btn_Stop_x = svBDec_Btn_Start_x + chgValBtnX;
+	int svBDec_Btn_Stop_y = svBDec_Btn_Start_y + chgValBtnY;
+
+	int svCDec_Btn_Start_x = svCVal_Btn_Stop_x + 10;
+	int svCDec_Btn_Start_y = svCVal_Btn_Start_y;
+	int svCDec_Btn_Stop_x = svCDec_Btn_Start_x + chgValBtnX;
+	int svCDec_Btn_Stop_y = svCDec_Btn_Start_y + chgValBtnY;
+
+	int svAInc_Btn_Start_x = svADec_Btn_Stop_x + 5;
+	int svAInc_Btn_Start_y = svAVal_Btn_Start_y;
+	int svAInc_Btn_Stop_x = svAInc_Btn_Start_x + chgValBtnX;
+	int svAInc_Btn_Stop_y = svAInc_Btn_Start_y + chgValBtnY;
+
+	int svBInc_Btn_Start_x = svBDec_Btn_Stop_x + 5;
+	int svBInc_Btn_Start_y = svBVal_Btn_Start_y;
+	int svBInc_Btn_Stop_x = svBInc_Btn_Start_x + chgValBtnX;
+	int svBInc_Btn_Stop_y = svBInc_Btn_Start_y + chgValBtnY;
+
+	int svCInc_Btn_Start_x = svCDec_Btn_Stop_x + 5;
+	int svCInc_Btn_Start_y = svCVal_Btn_Start_y;
+	int svCInc_Btn_Stop_x = svCInc_Btn_Start_x + chgValBtnX;
+	int svCInc_Btn_Stop_y = svCInc_Btn_Start_y + chgValBtnY;
+
+	int svAamt_Btn_Start_x = svAInc_Btn_Stop_x + 25;
+	int svAamt_Btn_Start_y = svAVal_Btn_Start_y;
+	int svAamt_Btn_Stop_x = svAamt_Btn_Start_x + chgValBtnX;
+	int svAamt_Btn_Stop_y = svAamt_Btn_Start_y + chgValBtnY;
+
+	int svBamt_Btn_Start_x = svBInc_Btn_Stop_x + 25;
+	int svBamt_Btn_Start_y = svBVal_Btn_Start_y;
+	int svBamt_Btn_Stop_x = svBamt_Btn_Start_x + chgValBtnX;
+	int svBamt_Btn_Stop_y = svBamt_Btn_Start_y + chgValBtnY;
+
+	int svCamt_Btn_Start_x = svCInc_Btn_Stop_x + 25;
+	int svCamt_Btn_Start_y = svCVal_Btn_Start_y;
+	int svCamt_Btn_Stop_x = svCamt_Btn_Start_x + chgValBtnX;
+	int svCamt_Btn_Stop_y = svCamt_Btn_Start_y + chgValBtnY;
+//#endregion
+
+//#region Acceleration Settings Screen
+	//Button States
+	boolean saAValBtnFlag = false;
+	boolean saBValBtnFlag = false;
+	boolean saCValBtnFlag = false;
+	boolean saADecBtnFlag = false;
+	boolean saBDecBtnFlag = false;
+	boolean saCDecBtnFlag = false;
+	boolean saAIncBtnFlag = false;
+	boolean saBIncBtnFlag = false;
+	boolean saCIncBtnFlag = false;
+	boolean saAamtBtnFlag = false;
+	boolean saBamtBtnFlag = false;
+	boolean saCamtBtnFlag = false;
+	
+	//Button Dimensions
+	//Same as 'Velocity Settings Screen'
+
+	//Button Positioning
+	int saAVal_Btn_Start_x = 30;
+	int saAVal_Btn_Start_y = 40;
+	int saAVal_Btn_Stop_x = saAVal_Btn_Start_x + fieldBtnX;
+	int saAVal_Btn_Stop_y = saAVal_Btn_Start_y + fieldBtnY;
+
+	int saBVal_Btn_Start_x = saAVal_Btn_Stop_x + 10;
+	int saBVal_Btn_Start_y = saAVal_Btn_Stop_y + 40;
+	int saBVal_Btn_Stop_x = saBVal_Btn_Start_x + fieldBtnX;
+	int saBVal_Btn_Stop_y = saBVal_Btn_Start_y + fieldBtnY;
+
+	int saCVal_Btn_Start_x = saBVal_Btn_Stop_x + 10;
+	int saCVal_Btn_Start_y = saBVal_Btn_Stop_y + 40;
+	int saCVal_Btn_Stop_x = saCVal_Btn_Start_x + fieldBtnX;
+	int saCVal_Btn_Stop_y = saCVal_Btn_Start_y + fieldBtnY;
+
+	int saADec_Btn_Start_x = saAVal_Btn_Stop_x + 10;
+	int saADec_Btn_Start_y = saAVal_Btn_Start_y;
+	int saADec_Btn_Stop_x = saADec_Btn_Start_x + chgValBtnX;
+	int saADec_Btn_Stop_y = saADec_Btn_Start_y + chgValBtnY;
+
+	int saBDec_Btn_Start_x = saBVal_Btn_Stop_x + 10;
+	int saBDec_Btn_Start_y = saBVal_Btn_Start_y;
+	int saBDec_Btn_Stop_x = saBDec_Btn_Start_x + chgValBtnX;
+	int saBDec_Btn_Stop_y = saBDec_Btn_Start_y + chgValBtnY;
+
+	int saCDec_Btn_Start_x = saCVal_Btn_Stop_x + 10;
+	int saCDec_Btn_Start_y = saCVal_Btn_Start_y;
+	int saCDec_Btn_Stop_x = saCDec_Btn_Start_x + chgValBtnX;
+	int saCDec_Btn_Stop_y = saCDec_Btn_Start_y + chgValBtnY;
+
+	int saAInc_Btn_Start_x = saADec_Btn_Stop_x + 5;
+	int saAInc_Btn_Start_y = saAVal_Btn_Start_y;
+	int saAInc_Btn_Stop_x = saAInc_Btn_Start_x + chgValBtnX;
+	int saAInc_Btn_Stop_y = saAInc_Btn_Start_y + chgValBtnY;
+
+	int saBInc_Btn_Start_x = saBDec_Btn_Stop_x + 5;
+	int saBInc_Btn_Start_y = saBVal_Btn_Start_y;
+	int saBInc_Btn_Stop_x = saBInc_Btn_Start_x + chgValBtnX;
+	int saBInc_Btn_Stop_y = saBInc_Btn_Start_y + chgValBtnY;
+
+	int saCInc_Btn_Start_x = saCDec_Btn_Stop_x + 5;
+	int saCInc_Btn_Start_y = saCVal_Btn_Start_y;
+	int saCInc_Btn_Stop_x = saCInc_Btn_Start_x + chgValBtnX;
+	int saCInc_Btn_Stop_y = saCInc_Btn_Start_y + chgValBtnY;
+
+	int saAamt_Btn_Start_x = saAInc_Btn_Stop_x + 25;
+	int saAamt_Btn_Start_y = saAVal_Btn_Start_y;
+	int saAamt_Btn_Stop_x = saAamt_Btn_Start_x + chgValBtnX;
+	int saAamt_Btn_Stop_y = saAamt_Btn_Start_y + chgValBtnY;
+
+	int saBamt_Btn_Start_x = saBInc_Btn_Stop_x + 25;
+	int saBamt_Btn_Start_y = saBVal_Btn_Start_y;
+	int saBamt_Btn_Stop_x = saBamt_Btn_Start_x + chgValBtnX;
+	int saBamt_Btn_Stop_y = saBamt_Btn_Start_y + chgValBtnY;
+
+	int saCamt_Btn_Start_x = saCInc_Btn_Stop_x + 25;
+	int saCamt_Btn_Start_y = saCVal_Btn_Start_y;
+	int saCamt_Btn_Stop_x = saCamt_Btn_Start_x + chgValBtnX;
+	int saCamt_Btn_Stop_y = saCamt_Btn_Start_y + chgValBtnY;
+//#endregion
+
+//#region Jerk Settings Screen
+	//Button States
+	boolean sjAValBtnFlag = false;
+	boolean sjBValBtnFlag = false;
+	boolean sjCValBtnFlag = false;
+	boolean sjADecBtnFlag = false;
+	boolean sjBDecBtnFlag = false;
+	boolean sjCDecBtnFlag = false;
+	boolean sjAIncBtnFlag = false;
+	boolean sjBIncBtnFlag = false;
+	boolean sjCIncBtnFlag = false;
+	boolean sjAamtBtnFlag = false;
+	boolean sjBamtBtnFlag = false;
+	boolean sjCamtBtnFlag = false;
+	
+	//Button Dimensions
+	//Same as 'Velocity Settings Screen'
+
+	//Button Positioning
+	int sjAVal_Btn_Start_x = 30;
+	int sjAVal_Btn_Start_y = 40;
+	int sjAVal_Btn_Stop_x = sjAVal_Btn_Start_x + fieldBtnX;
+	int sjAVal_Btn_Stop_y = sjAVal_Btn_Start_y + fieldBtnY;
+
+	int sjBVal_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
+	int sjBVal_Btn_Start_y = sjAVal_Btn_Stop_y + 40;
+	int sjBVal_Btn_Stop_x = sjBVal_Btn_Start_x + fieldBtnX;
+	int sjBVal_Btn_Stop_y = sjBVal_Btn_Start_y + fieldBtnY;
+
+	int sjCVal_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
+	int sjCVal_Btn_Start_y = sjBVal_Btn_Stop_y + 40;
+	int sjCVal_Btn_Stop_x = sjCVal_Btn_Start_x + fieldBtnX;
+	int sjCVal_Btn_Stop_y = sjCVal_Btn_Start_y + fieldBtnY;
+
+	int sjADec_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
+	int sjADec_Btn_Start_y = sjAVal_Btn_Start_y;
+	int sjADec_Btn_Stop_x = sjADec_Btn_Start_x + chgValBtnX;
+	int sjADec_Btn_Stop_y = sjADec_Btn_Start_y + chgValBtnY;
+
+	int sjBDec_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
+	int sjBDec_Btn_Start_y = sjBVal_Btn_Start_y;
+	int sjBDec_Btn_Stop_x = sjBDec_Btn_Start_x + chgValBtnX;
+	int sjBDec_Btn_Stop_y = sjBDec_Btn_Start_y + chgValBtnY;
+
+	int sjCDec_Btn_Start_x = sjCVal_Btn_Stop_x + 10;
+	int sjCDec_Btn_Start_y = sjCVal_Btn_Start_y;
+	int sjCDec_Btn_Stop_x = sjCDec_Btn_Start_x + chgValBtnX;
+	int sjCDec_Btn_Stop_y = sjCDec_Btn_Start_y + chgValBtnY;
+
+	int sjAInc_Btn_Start_x = sjADec_Btn_Stop_x + 5;
+	int sjAInc_Btn_Start_y = sjAVal_Btn_Start_y;
+	int sjAInc_Btn_Stop_x = sjAInc_Btn_Start_x + chgValBtnX;
+	int sjAInc_Btn_Stop_y = sjAInc_Btn_Start_y + chgValBtnY;
+
+	int sjBInc_Btn_Start_x = sjBDec_Btn_Stop_x + 5;
+	int sjBInc_Btn_Start_y = sjBVal_Btn_Start_y;
+	int sjBInc_Btn_Stop_x = sjBInc_Btn_Start_x + chgValBtnX;
+	int sjBInc_Btn_Stop_y = sjBInc_Btn_Start_y + chgValBtnY;
+
+	int sjCInc_Btn_Start_x = sjCDec_Btn_Stop_x + 5;
+	int sjCInc_Btn_Start_y = sjCVal_Btn_Start_y;
+	int sjCInc_Btn_Stop_x = sjCInc_Btn_Start_x + chgValBtnX;
+	int sjCInc_Btn_Stop_y = sjCInc_Btn_Start_y + chgValBtnY;
+
+	int sjAamt_Btn_Start_x = sjAInc_Btn_Stop_x + 25;
+	int sjAamt_Btn_Start_y = sjAVal_Btn_Start_y;
+	int sjAamt_Btn_Stop_x = sjAamt_Btn_Start_x + chgValBtnX;
+	int sjAamt_Btn_Stop_y = sjAamt_Btn_Start_y + chgValBtnY;
+
+	int sjBamt_Btn_Start_x = sjBInc_Btn_Stop_x + 25;
+	int sjBamt_Btn_Start_y = sjBVal_Btn_Start_y;
+	int sjBamt_Btn_Stop_x = sjBamt_Btn_Start_x + chgValBtnX;
+	int sjBamt_Btn_Stop_y = sjBamt_Btn_Start_y + chgValBtnY;
+
+	int sjCamt_Btn_Start_x = sjCInc_Btn_Stop_x + 25;
+	int sjCamt_Btn_Start_y = sjCVal_Btn_Start_y;
+	int sjCamt_Btn_Stop_x = sjCamt_Btn_Start_x + chgValBtnX;
+	int sjCamt_Btn_Stop_y = sjCamt_Btn_Start_y + chgValBtnY;
+//#endregion
+
+//#region Microstep Settings Screen
+	//Button States
+	boolean mAuSBtnFlag = false;
+	boolean mBuSBtnFlag = false;
+	boolean mCuSBtnFlag = false;
+	boolean mAinvBtnFlag = false;
+	boolean mBinvBtnFlag = false;
+	boolean mCinvBtnFlag = false;
+	
+	//Button Dimensions
+	int uSBtnX = 100;
+	int uSBtnY = 100;
+
+	int invBtnX = 25;
+	int invBtnY = 25;
+
+	//Button Positioning
+	int mAuS_Btn_Start_x = 50;
+	int mAuS_Btn_Start_y = 100;
+	int mAuS_Btn_Stop_x = mAuS_Btn_Start_x + uSBtnX;
+	int mAuS_Btn_Stop_y = mAuS_Btn_Stop_y + uSBtnY;
+
+	int mBuS_Btn_Start_x = mAuS_Btn_Start_x + uSBtnX + 10;
+	int mBuS_Btn_Start_y = 100;
+	int mBuS_Btn_Stop_x = mBuS_Btn_Start_x + uSBtnX;
+	int mBuS_Btn_Stop_y = mBuS_Btn_Stop_y + uSBtnY;
+
+	int mCuS_Btn_Start_x = mBuS_Btn_Start_x + uSBtnX + 15;
+	int mCuS_Btn_Start_y = 100;
+	int mCuS_Btn_Stop_x = mCuS_Btn_Start_x + uSBtnX;
+	int mCuS_Btn_Stop_y = mCuS_Btn_Start_y + uSBtnY;
+
+	int mAinv_Btn_Start_x = mAuS_Btn_Start_x;
+	int mAinv_Btn_Start_y = 200;
+	int mAinv_Btn_Stop_x = mAinv_Btn_Start_x + invBtnX;
+	int mAinv_Btn_Stop_y = mAinv_Btn_Start_y + invBtnY;
+
+	int mBinv_Btn_Start_x = mBuS_Btn_Start_x;
+	int mBinv_Btn_Start_y = 200;
+	int mBinv_Btn_Stop_x = mBinv_Btn_Start_x + invBtnX;
+	int mBinv_Btn_Stop_y = mBinv_Btn_Start_y + invBtnY;
+
+	int mCinv_Btn_Start_x = mCuS_Btn_Start_x;
+	int mCinv_Btn_Start_y = 200;
+	int mCinv_Btn_Stop_x = mCinv_Btn_Start_x + invBtnX;
+	int mCinv_Btn_Stop_y = mCinv_Btn_Start_y + invBtnY;
+//#endregion
+
+//#region Steps/mm Settings Screen
+	//Button States
+	boolean ssmmAValBtnFlag = false;
+	boolean ssmmBValBtnFlag = false;
+	boolean ssmmCValBtnFlag = false;
+	boolean ssmmADecBtnFlag = false;
+	boolean ssmmBDecBtnFlag = false;
+	boolean ssmmCDecBtnFlag = false;
+	boolean ssmmAIncBtnFlag = false;
+	boolean ssmmBIncBtnFlag = false;
+	boolean ssmmCIncBtnFlag = false;
+	boolean ssmmAamtBtnFlag = false;
+	boolean ssmmBamtBtnFlag = false;
+	boolean ssmmCamtBtnFlag = false;
+
+	
+	//Button Dimensions
+	//Same as 'Velocity Settings Screen'
+
+	//Button Positioning
+	int ssmmAVal_Btn_Start_x = 30;
+	int ssmmAVal_Btn_Start_y = 40;
+	int ssmmAVal_Btn_Stop_x = ssmmAVal_Btn_Start_x + fieldBtnX;
+	int ssmmAVal_Btn_Stop_y = ssmmAVal_Btn_Start_y + fieldBtnY;
+
+	int ssmmBVal_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
+	int ssmmBVal_Btn_Start_y = ssmmAVal_Btn_Stop_y + 40;
+	int ssmmBVal_Btn_Stop_x = ssmmBVal_Btn_Start_x + fieldBtnX;
+	int ssmmBVal_Btn_Stop_y = ssmmBVal_Btn_Start_y + fieldBtnY;
+
+	int ssmmCVal_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
+	int ssmmCVal_Btn_Start_y = ssmmBVal_Btn_Stop_y + 40;
+	int ssmmCVal_Btn_Stop_x = ssmmCVal_Btn_Start_x + fieldBtnX;
+	int ssmmCVal_Btn_Stop_y = ssmmCVal_Btn_Start_y + fieldBtnY;
+
+	int ssmmADec_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
+	int ssmmADec_Btn_Start_y = ssmmAVal_Btn_Start_y;
+	int ssmmADec_Btn_Stop_x = ssmmADec_Btn_Start_x + chgValBtnX;
+	int ssmmADec_Btn_Stop_y = ssmmADec_Btn_Start_y + chgValBtnY;
+
+	int ssmmBDec_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
+	int ssmmBDec_Btn_Start_y = ssmmBVal_Btn_Start_y;
+	int ssmmBDec_Btn_Stop_x = ssmmBDec_Btn_Start_x + chgValBtnX;
+	int ssmmBDec_Btn_Stop_y = ssmmBDec_Btn_Start_y + chgValBtnY;
+
+	int ssmmCDec_Btn_Start_x = ssmmCVal_Btn_Stop_x + 10;
+	int ssmmCDec_Btn_Start_y = ssmmCVal_Btn_Start_y;
+	int ssmmCDec_Btn_Stop_x = ssmmCDec_Btn_Start_x + chgValBtnX;
+	int ssmmCDec_Btn_Stop_y = ssmmCDec_Btn_Start_y + chgValBtnY;
+
+	int ssmmAInc_Btn_Start_x = ssmmADec_Btn_Stop_x + 5;
+	int ssmmAInc_Btn_Start_y = ssmmAVal_Btn_Start_y;
+	int ssmmAInc_Btn_Stop_x = ssmmAInc_Btn_Start_x + chgValBtnX;
+	int ssmmAInc_Btn_Stop_y = ssmmAInc_Btn_Start_y + chgValBtnY;
+
+	int ssmmBInc_Btn_Start_x = ssmmBDec_Btn_Stop_x + 5;
+	int ssmmBInc_Btn_Start_y = ssmmBVal_Btn_Start_y;
+	int ssmmBInc_Btn_Stop_x = ssmmBInc_Btn_Start_x + chgValBtnX;
+	int ssmmBInc_Btn_Stop_y = ssmmBInc_Btn_Start_y + chgValBtnY;
+
+	int ssmmCInc_Btn_Start_x = ssmmCDec_Btn_Stop_x + 5;
+	int ssmmCInc_Btn_Start_y = ssmmCVal_Btn_Start_y;
+	int ssmmCInc_Btn_Stop_x = ssmmCInc_Btn_Start_x + chgValBtnX;
+	int ssmmCInc_Btn_Stop_y = ssmmCInc_Btn_Start_y + chgValBtnY;
+
+	int ssmmAamt_Btn_Start_x = ssmmAInc_Btn_Stop_x + 25;
+	int ssmmAamt_Btn_Start_y = ssmmAVal_Btn_Start_y;
+	int ssmmAamt_Btn_Stop_x = ssmmAamt_Btn_Start_x + chgValBtnX;
+	int ssmmAamt_Btn_Stop_y = ssmmAamt_Btn_Start_y + chgValBtnY;
+
+	int ssmmBamt_Btn_Start_x = ssmmBInc_Btn_Stop_x + 25;
+	int ssmmBamt_Btn_Start_y = ssmmBVal_Btn_Start_y;
+	int ssmmBamt_Btn_Stop_x = ssmmBamt_Btn_Start_x + chgValBtnX;
+	int ssmmBamt_Btn_Stop_y = ssmmBamt_Btn_Start_y + chgValBtnY;
+
+	int ssmmCamt_Btn_Start_x = ssmmCInc_Btn_Stop_x + 25;
+	int ssmmCamt_Btn_Start_y = ssmmCVal_Btn_Start_y;
+	int ssmmCamt_Btn_Stop_x = ssmmCamt_Btn_Start_x + chgValBtnX;
+	int ssmmCamt_Btn_Stop_y = ssmmCamt_Btn_Start_y + chgValBtnY;
+
+	//Touch parameter calibration
+	int TS_LEFT = 70;
+	int TS_RIGHT = 940;
+	int TS_TOP = 130;
+	int TS_BOT = 900;
+
+	int activeScreen = 0; //0 = home screen
+		
+	pinMode(XM, OUTPUT);
+	pinMode(YP, OUTPUT);
   
-  pinMode(ENABLE_MOTORS, OUTPUT);
+	/***Screen Setup***/
+	tft.Init_LCD();
+	tft.Set_Rotation(1);
+	tft.Fill_Screen(BLACK);
+	tft.Set_Text_Mode(0);
   
-  pinMode(MS1A, OUTPUT);
-  pinMode(MS2A, OUTPUT);
-  pinMode(MS3A, OUTPUT);
-  pinMode(MS1B, OUTPUT);
-  pinMode(MS2B, OUTPUT);
-  pinMode(MS3B, OUTPUT);
-  pinMode(MS1C, OUTPUT);
-  pinMode(MS2C, OUTPUT);
-  pinMode(MS3C, OUTPUT);
-  pinMode(MS1D, OUTPUT);
-  pinMode(MS2D, OUTPUT);
-  pinMode(MS3D, OUTPUT);
-  
-  /***Screen Setup***/
-  tft.Init_LCD();
-  tft.Set_Rotation(1);
-  tft.Fill_Screen(BLACK);    //Change the screen to solid white
-  tft.Set_Text_Mode(0);
-
-  //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
-  activeScreen = 4;
-  //drawMainScreen();
-  drawMachineSettingsScreen();
-  /***************/
-  
-  /***Motor Setup***/  
-  setMicroStepping('A', 4);
-  setMicroStepping('B', 4);
-  setMicroStepping('C', 4);
-  setMotorDirection('A', 0);
-  setMotorDirection('B', 0);
-  setMotorDirection('C', 0);
-  enableMotors();
+	//0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
+	activeScreen = 0;
+	drawMainScreen();
 }
 
-void loop() {
-  //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
-  if(activeScreen == 0) {
-    updateMainScreen();
-  }
-  else if(activeScreen == 1) {
-    updateProfileLoadScreen();
-  }
-  else if(activeScreen == 2) {
-    updateNewProfileScreen();
-  }
-  else if(activeScreen == 3) {
-    updateEditProfileScreen();
-  }
-  else if(activeScreen == 4) {
-    updateMachineSettingsScreen();
-  }
-  else if(activeScreen == 5){ 
-    updateInputScreen();
-  }
-  else if(activeScreen == 6) {
-    updateVelScreen();
-  }
-  else if(activeScreen == 7) {
-    updateAccelScreen();
-  }
-  else if(activeScreen == 8) {
-    updateJerkScreen();
-  }
-  else if(activeScreen = 9) {
-    updateMicrostepScreen();
-  }
-  else if(activeScreen == 10) {
-    updateStepsMMScreen();
-  }
-}
-
-/**Draw the main home screen**/
-void drawMainScreen() { 
-  /***Screen Update***/
+void GUI::drawMainScreen() {
   tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   //Load Configuration Button
@@ -1314,9 +1158,8 @@ void drawMainScreen() {
   tft.Print_String((String)convertStepsToDistance(mStepsA, mStepsPerA, mUStepA) + "mm", xPadding + 180, (yPadding*6) + settingBtnY + 75);
 }
 
-/**Get touch readings and redraw changes**/
-void updateMainScreen() {
-  /***Touch Update***/
+void GUI::updateMainScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -1864,9 +1707,8 @@ void updateMainScreen() {
   }
 }
 
-/**Draw the input screen **/
-void drawInputScreen() {
-  tft.Fill_Screen(BLACK);   //Change the screen to solid black
+void GUI::drawInputScreen() {
+	tft.Fill_Screen(BLACK);   //Change the screen to solid black
   
   //Value Field Border
   tft.Set_Draw_color(YELLOW);
@@ -2019,10 +1861,8 @@ void drawInputScreen() {
   tft.Print_String("OK", numOk_Btn_Start_x + 60, numOk_Btn_Start_y + 18);
 }
 
-/**Get touch readings and redraw changes**/
-//TODO: Adjust input and delete operation to work from right end instead of the decimal point seperating int and float
-void updateInputScreen() {
-  /***Touch Update***/
+void GUI::updateInputScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -3032,9 +2872,8 @@ void updateInputScreen() {
   }
 }
 
-/**Draw the profile loading screen**/
-void drawProfileLoadScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black
+void GUI::drawProfileLoadScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   int numSavedProfiles = 0;
   int eeAddr = 150;
@@ -3191,9 +3030,8 @@ void drawProfileLoadScreen() {
   }
 }
 
-/**Get touch readings and redraw changes**/
-void updateProfileLoadScreen() {
-    /***Touch Update***/
+void GUI::updateProfileLoadScreen() {
+	  /***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -3641,9 +3479,8 @@ void updateProfileLoadScreen() {
   }
 }
 
-/**Draw the new profile creation screen **/
-void drawNewProfileScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black
+void GUI::drawNewProfileScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   //Profile Configuration Title Border
   tft.Set_Draw_color(YELLOW);
@@ -3796,9 +3633,8 @@ void drawNewProfileScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateNewProfileScreen() {
-  /***Touch Update***/
+void GUI::updateNewProfileScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -4234,9 +4070,8 @@ void updateNewProfileScreen() {
   }
 }
 
-/**Draw the edit profile screen**/
-void drawEditProfileScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black
+void GUI::drawEditProfileScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   //Profile Configuration Title Border
   tft.Set_Draw_color(YELLOW);
@@ -4389,8 +4224,7 @@ void drawEditProfileScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateEditProfileScreen() {
+void GUI::updateEditProfileScreen() {
   /***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
@@ -4836,9 +4670,8 @@ void updateEditProfileScreen() {
   }
 }
 
-/**Draw the machine settings screen**/
-void drawMachineSettingsScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black
+void GUI::drawMachineSettingsScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
@@ -4932,9 +4765,8 @@ void drawMachineSettingsScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 18, pnSave_Btn_Start_y + 13);
 }
 
-/**Get touch readings and redraw changes**/
-void updateMachineSettingsScreen() {
-  /***Touch Update***/
+void GUI::updateMachineSettingsScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -5187,9 +5019,8 @@ void updateMachineSettingsScreen() {
   }
 }
 
-/**Draw the velocity setting screen**/
-void drawVelScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black  
+void GUI::drawVelScreen() {
+	 tft.Fill_Screen(BLACK);    //Change the screen to solid black  
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
@@ -5378,9 +5209,8 @@ void drawVelScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateVelScreen() {
-  /***Touch Update***/
+void GUI::updateVelScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -5933,9 +5763,8 @@ void updateVelScreen() {
   }
 }
 
-/**Draw the acceleration setting screen**/
-void drawAccelScreen() {
-   tft.Fill_Screen(BLACK);    //Change the screen to solid black  
+void GUI::drawAccelScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black  
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
@@ -6124,9 +5953,8 @@ void drawAccelScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateAccelScreen() {
-  /***Touch Update***/
+void GUI::updateAccelScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -6679,9 +6507,8 @@ void updateAccelScreen() {
   }
 }
 
-/**Draw the jerk setting screen**/
-void drawJerkScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black  
+void GUI::drawJerkScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black  
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
@@ -6870,9 +6697,8 @@ void drawJerkScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateJerkScreen() {
-    /***Touch Update***/
+void GUI::updateJerkScreen() {
+	 /***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -7425,9 +7251,8 @@ void updateJerkScreen() {
   }
 }
 
-/**Draw the microstep settings screen**/
-void drawMicrostepScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black
+void GUI::drawMicrostepScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
   //Microstepping Title Border
   tft.Set_Draw_color(YELLOW);
@@ -7600,9 +7425,8 @@ void drawMicrostepScreen() {
   tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and update changes**/
-void updateMicrostepScreen() {
-  /***Touch Update***/
+void GUI::updateMicrostepScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -7941,200 +7765,198 @@ void updateMicrostepScreen() {
   }
 }
 
-/**Draw the steps/mm setting screen**/
-void drawStepsMMScreen() {
-  tft.Fill_Screen(BLACK);    //Change the screen to solid black  
+void GUI::drawStepsMMScreen() {
+	tft.Fill_Screen(BLACK);    //Change the screen to solid black  
 
-  //Machine Settings Title Border
-  tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+	//Machine Settings Title Border
+	  tft.Set_Draw_color(YELLOW);
+	  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
 
-  //Machine Settings Title
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm Settings", 240, yPadding);
+	  //Machine Settings Title
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Steps/mm Settings", 240, yPadding);
 
-  //Motor A Title
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
+	  //Motor A Title
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
 
-  //Motor B Title
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
-  
-  //Motor C Title
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
+	  //Motor B Title
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
+	  
+	  //Motor C Title
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
 
-  //Top Clamp Value Field
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerA, ssmmAVal_Btn_Start_x + 17, ssmmAVal_Btn_Start_y + 17);
+	  //Top Clamp Value Field
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String((String)mStepsPerA, ssmmAVal_Btn_Start_x + 17, ssmmAVal_Btn_Start_y + 17);
 
-  //Bottom Clamp Value Field
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerB, ssmmBVal_Btn_Start_x + 17, ssmmBVal_Btn_Start_y + 17);
-  
-  //Frame Carriage Value Field
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerC, ssmmCVal_Btn_Start_x + 17, ssmmCVal_Btn_Start_y + 17);
+	  //Bottom Clamp Value Field
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String((String)mStepsPerB, ssmmBVal_Btn_Start_x + 17, ssmmBVal_Btn_Start_y + 17);
+	  
+	  //Frame Carriage Value Field
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String((String)mStepsPerC, ssmmCVal_Btn_Start_x + 17, ssmmCVal_Btn_Start_y + 17);
 
-  //Motor A Units Text
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+	  //Motor A Units Text
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
 
-  //Motor B Units Text
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
-  
-  //Motor C Units Text
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+	  //Motor B Units Text
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+	  
+	  //Motor C Units Text
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(BLACK);
+	  tft.Set_Text_colour(YELLOW);
+	  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
 
-  //Decrease A Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmADec_Btn_Start_x + 7, ssmmADec_Btn_Start_y + 15);
+	  //Decrease A Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("-", ssmmADec_Btn_Start_x + 7, ssmmADec_Btn_Start_y + 15);
 
-  //Increase A Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmAInc_Btn_Start_x + 7, ssmmAInc_Btn_Start_y + 15);
+	  //Increase A Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("+", ssmmAInc_Btn_Start_x + 7, ssmmAInc_Btn_Start_y + 15);
 
-  //Amount Button A
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmAamt_Btn_Start_x, ssmmAamt_Btn_Start_y, ssmmAamt_Btn_Stop_x, ssmmAamt_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmAamt_Btn_Start_x, ssmmAamt_Btn_Start_y, ssmmAamt_Btn_Stop_x, ssmmAamt_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmAamt_Btn_Start_x + 7, ssmmAamt_Btn_Start_y + 15);
+	  //Amount Button A
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmAamt_Btn_Start_x, ssmmAamt_Btn_Start_y, ssmmAamt_Btn_Stop_x, ssmmAamt_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmAamt_Btn_Start_x, ssmmAamt_Btn_Start_y, ssmmAamt_Btn_Stop_x, ssmmAamt_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("0.01", ssmmAamt_Btn_Start_x + 7, ssmmAamt_Btn_Start_y + 15);
 
-  //Decrease B Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmBDec_Btn_Start_x + 7, ssmmBDec_Btn_Start_y + 15);
+	  //Decrease B Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("-", ssmmBDec_Btn_Start_x + 7, ssmmBDec_Btn_Start_y + 15);
 
-  //Increase B Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmBInc_Btn_Start_x + 7, ssmmBInc_Btn_Start_y + 15);
+	  //Increase B Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("+", ssmmBInc_Btn_Start_x + 7, ssmmBInc_Btn_Start_y + 15);
 
-  //Amount Button B
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmBamt_Btn_Start_x, ssmmBamt_Btn_Start_y, ssmmBamt_Btn_Stop_x, ssmmBamt_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmBamt_Btn_Start_x, ssmmBamt_Btn_Start_y, ssmmBamt_Btn_Stop_x, ssmmBamt_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmBamt_Btn_Start_x + 7, ssmmBamt_Btn_Start_y + 15);
+	  //Amount Button B
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmBamt_Btn_Start_x, ssmmBamt_Btn_Start_y, ssmmBamt_Btn_Stop_x, ssmmBamt_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmBamt_Btn_Start_x, ssmmBamt_Btn_Start_y, ssmmBamt_Btn_Stop_x, ssmmBamt_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("0.01", ssmmBamt_Btn_Start_x + 7, ssmmBamt_Btn_Start_y + 15);
 
-  //Decrease C Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmCDec_Btn_Start_x + 7, ssmmCDec_Btn_Start_y + 15);
+	  //Decrease C Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("-", ssmmCDec_Btn_Start_x + 7, ssmmCDec_Btn_Start_y + 15);
 
-  //Increase C Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmCInc_Btn_Start_x + 7, ssmmCInc_Btn_Start_y + 15);
+	  //Increase C Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("+", ssmmCInc_Btn_Start_x + 7, ssmmCInc_Btn_Start_y + 15);
 
-  //Amount Button C
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(ssmmCamt_Btn_Start_x, ssmmCamt_Btn_Start_y, ssmmCamt_Btn_Stop_x, ssmmCamt_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(ssmmCamt_Btn_Start_x, ssmmCamt_Btn_Start_y, ssmmCamt_Btn_Stop_x, ssmmCamt_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmCamt_Btn_Start_x + 7, ssmmCamt_Btn_Start_y + 15);
+	  //Amount Button C
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(ssmmCamt_Btn_Start_x, ssmmCamt_Btn_Start_y, ssmmCamt_Btn_Stop_x, ssmmCamt_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(ssmmCamt_Btn_Start_x, ssmmCamt_Btn_Start_y, ssmmCamt_Btn_Stop_x, ssmmCamt_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("0.01", ssmmCamt_Btn_Start_x + 7, ssmmCamt_Btn_Start_y + 15);
 
-  //Back Button
-  tft.Set_Draw_color(WHITE);
-  tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(WHITE);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+	  //Back Button
+	  tft.Set_Draw_color(WHITE);
+	  tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(WHITE);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
 
-  //Save Button
-  tft.Set_Draw_color(GREEN);
-  tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Draw_color(GRAY);
-  tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
-  tft.Set_Text_Back_colour(GREEN);
-  tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+	  //Save Button
+	  tft.Set_Draw_color(GREEN);
+	  tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
+	  tft.Set_Draw_color(GRAY);
+	  tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
+	  tft.Set_Text_Size(1);
+	  tft.Set_Text_Back_colour(GREEN);
+	  tft.Set_Text_colour(BLACK);
+	  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
 }
 
-/**Get touch readings and redraw changes**/
-void updateStepsMMScreen() {
-  /***Touch Update***/
+void GUI::updateStepsMMScreen() {
+	/***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -8687,627 +8509,3 @@ void updateStepsMMScreen() {
   }
 }
 
-/**Move the specified motor to a specified location**/
-void moveTo(char motor, float mmPos) {
-  if(motor == 'A') {
-    int toSteps = (mmPos * mStepsPerA) - mStepsA;   //Get the distance needing to be closed from current position in step number
-    long startTime = millis();                      //Record when move began
-    long prevPulseTime = startTime;                 //Initialize the previous pulse timer
-
-    int i = 0;
-    while(i < toSteps) {            //While there are still steps to be made
-      long curTime = millis();      //Update the current time
-
-      if(i < toSteps / 2) {         //If in the first half of the movement
-        mCurVelocityA = (mAccelA * (startTime - curTime)) + (mJerkA * (startTime - curTime)^2);        //Calculate the current velocity from elapsed time
-        
-        if(mCurVelocityA > mVelocityA) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityA = mVelocityA;                                                                   //Set it to the max allowed
-        }
-      }
-      else if(i >= toSteps / 2) {   //If in the second half of the movement
-        mCurVelocityA -= (mAccelA * (startTime - curTime)) + (mJerkA * (startTime - curTime)^2);
-
-        if(mCurVelocityA < mVelocityA) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityA = 0;                                                                            //Set it to the max allowed
-        }
-      }
-
-      if(mCurVelocityA != 0) {
-        long delayPeriod = 1000 / mCurVelocityA;
-    
-        if(wait(delayPeriod, prevPulseTime)) {
-          prevPulseTime = millis();
-          i++;
-          doStep('A');
-        }
-      }
-    }
-  }
-  else if(motor == 'B') {
-    int toSteps = (mmPos * mStepsPerB) - mStepsB;   //Get the distance needing to be closed from current position in step number
-    long startTime = millis();                      //Record when move began
-    long prevPulseTime = startTime;                 //Initialize the previous pulse timer
-
-    int i = 0;
-    while(i < toSteps) {            //While there are still steps to be made
-      long curTime = millis();      //Update the current time
-
-      if(i < toSteps / 2) {         //If in the first half of the movement
-        mCurVelocityB = (mAccelB * (startTime - curTime)) + (mJerkB * (startTime - curTime)^2);        //Calculate the current velocity from elapsed time
-        
-        if(mCurVelocityB > mVelocityB) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityB = mVelocityB;                                                                   //Set it to the max allowed
-        }
-      }
-      else if(i >= toSteps / 2) {   //If in the second half of the movement
-        mCurVelocityB -= (mAccelB * (startTime - curTime)) + (mJerkB * (startTime - curTime)^2);
-
-        if(mCurVelocityB < mVelocityB) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityB = 0;                                                                            //Set it to the max allowed
-        }
-      }
-
-      if(mCurVelocityB != 0) {
-        long delayPeriod = 1000 / mCurVelocityB;
-    
-        if(wait(delayPeriod, prevPulseTime)) {
-          prevPulseTime = millis();
-          i++;
-          doStep('B');
-        }
-      }
-    }
-  }
-  else if(motor == 'C') {
-    int toSteps = (mmPos * mStepsPerC) - mStepsC;   //Get the distance needing to be closed from current position in step number
-    long startTime = millis();                      //Record when move began
-    long prevPulseTime = startTime;                 //Initialize the previous pulse timer
-
-    int i = 0;
-    while(i < toSteps) {            //While there are still steps to be made
-      long curTime = millis();      //Update the current time
-
-      if(i < toSteps / 2) {         //If in the first half of the movement
-        mCurVelocityC = (mAccelC * (startTime - curTime)) + (mJerkC * (startTime - curTime)^2);        //Calculate the current velocity from elapsed time
-        
-        if(mCurVelocityC > mVelocityC) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityC = mVelocityC;                                                                   //Set it to the max allowed
-        }
-      }
-      else if(i >= toSteps / 2) {   //If in the second half of the movement
-        mCurVelocityC -= (mAccelC * (startTime - curTime)) + (mJerkC * (startTime - curTime)^2);
-
-        if(mCurVelocityC < mVelocityC) {                                                                //If the value would go beyond the max allowed
-          mCurVelocityC = 0;                                                                            //Set it to the max allowed
-        }
-      }
-
-      if(mCurVelocityC != 0) {
-        long delayPeriod = 1000 / mCurVelocityC;
-    
-        if(wait(delayPeriod, prevPulseTime)) {
-          prevPulseTime = millis();
-          i++;
-          doStep('C');
-        }
-      }
-    }
-  }
-}
-
-/**Move the specified motor by one step**/
-void doStep(char motor) {
-  if(motor == 'A') {               //If the motor specified is motor A
-    if(mDirA == 0) {               //If the direction of movement is 0
-      mStepsA++;                   //Increase the counted steps
-    }
-    else if(mDirA == 1) {          //If the direction of movement is 1
-      mStepsA--;                   //Decrease the counted steps
-    }
-    //Send step pulse command
-    digitalWrite(pulseA, HIGH);
-    delayMicroseconds(25);
-    digitalWrite(pulseA, LOW);
-    delayMicroseconds(25);
-  }
-  else if(motor == 'B') {
-    if(mDirB == 0) {
-      mStepsB++;
-    }
-    else if(mDirB == 1) {
-      mStepsB--;
-    }
-    digitalWrite(pulseB, HIGH);
-    delayMicroseconds(25);
-    digitalWrite(pulseB, LOW);
-    delayMicroseconds(25);
-  }
-  else if(motor == 'C') {
-    if(mDirC == 0) {
-      mStepsC++;
-    }
-    else if(mDirC == 1) {
-      mStepsC--;
-    }
-    digitalWrite(pulseC, HIGH);
-    delayMicroseconds(25);
-    digitalWrite(pulseC, LOW);
-    delayMicroseconds(25);
-  }
-}
-
-/**Turn on the specified motor**/
-void enableMotors() {
-    enM = true;
-    digitalWrite(ENABLE_MOTORS, LOW);
-}
-
-/**Turn off the secified motor**/
-void disableMotors() {
-    enM = false;
-    digitalWrite(ENABLE_MOTORS, HIGH);
-}
-
-/**Change the microstepping of the specified motor**/
-/*uStep 0 = 1, 1 = 1/2, 2 = 1/4, 3 = 1/8, 4 = 1/168*/
-void setMicroStepping(char motor, int uStep) {
-  if(motor == 'A') {  //If the specified motor is motor A or D (top/bot carriages)
-    mUStepA = uStep;                  //Update the motor A microstepping variable
-
-    //Motor D is cloned from A with few exceptions such as inversion and direction settings
-    switch(uStep) {
-      case 0:                       //Full Step
-        digitalWrite(MS1A, LOW);
-        digitalWrite(MS2A, LOW);
-        digitalWrite(MS3A, LOW);
-        digitalWrite(MS1D, LOW);
-        digitalWrite(MS2D, LOW);
-        digitalWrite(MS3D, LOW);
-        break;
-      case 1:                       //1/2 Step
-        digitalWrite(MS1A, HIGH);
-        digitalWrite(MS2A, LOW);
-        digitalWrite(MS3A, LOW);
-        digitalWrite(MS1D, HIGH);
-        digitalWrite(MS2D, LOW);
-        digitalWrite(MS3D, LOW);
-        break;
-      case 2:                       //1/4 Step
-        digitalWrite(MS1A, LOW);
-        digitalWrite(MS2A, HIGH);
-        digitalWrite(MS3A, LOW);
-        digitalWrite(MS1D, LOW);
-        digitalWrite(MS2D, HIGH);
-        digitalWrite(MS3D, LOW);
-        break;
-      case 3:                       //1/8 Step
-        digitalWrite(MS1A, HIGH);
-        digitalWrite(MS2A, HIGH);
-        digitalWrite(MS3A, LOW);
-        digitalWrite(MS1D, HIGH);
-        digitalWrite(MS2D, HIGH);
-        digitalWrite(MS3D, LOW);
-        break;
-      case 4:                       //1/16 Step
-        digitalWrite(MS1A, HIGH);
-        digitalWrite(MS2A, HIGH);
-        digitalWrite(MS3A, HIGH);
-        digitalWrite(MS1D, HIGH);
-        digitalWrite(MS2D, HIGH);
-        digitalWrite(MS3D, HIGH);
-        break;  
-    }
-  }
-  else if(motor == 'B') {
-    mUStepB = uStep;
-
-    switch(uStep) {
-      case 0:                       //Full Step
-        digitalWrite(MS1B, LOW);
-        digitalWrite(MS2B, LOW);
-        digitalWrite(MS3B, LOW);
-        break;
-      case 1:                       //1/2 Step
-        digitalWrite(MS1B, HIGH);
-        digitalWrite(MS2B, LOW);
-        digitalWrite(MS3B, LOW);
-        break;
-      case 2:                       //1/4 Step
-        digitalWrite(MS1B, LOW);
-        digitalWrite(MS2B, HIGH);
-        digitalWrite(MS3B, LOW);
-        break;
-      case 3:                       //1/8 Step
-        digitalWrite(MS1B, HIGH);
-        digitalWrite(MS2B, HIGH);
-        digitalWrite(MS3B, LOW);
-        break;
-      case 4:                       //1/16 Step
-        digitalWrite(MS1B, HIGH);
-        digitalWrite(MS2B, HIGH);
-        digitalWrite(MS3B, HIGH);
-        break;  
-    }
-  }
-  else if(motor == 'C') {
-    mUStepC = uStep;
-    
-    switch(uStep) {
-      case 0:                       //Full Step
-        digitalWrite(MS1C, LOW);
-        digitalWrite(MS2C, LOW);
-        digitalWrite(MS3C, LOW);
-        break;
-      case 1:                       //1/2 Step
-        digitalWrite(MS1C, HIGH);
-        digitalWrite(MS2C, LOW);
-        digitalWrite(MS3C, LOW);
-        break;
-      case 2:                       //1/4 Step
-        digitalWrite(MS1C, LOW);
-        digitalWrite(MS2C, HIGH);
-        digitalWrite(MS3C, LOW);
-        break;
-      case 3:                       //1/8 Step
-        digitalWrite(MS1C, HIGH);
-        digitalWrite(MS2C, HIGH);
-        digitalWrite(MS3C, LOW);
-        break;
-      case 4:                       //1/16 Step
-        digitalWrite(MS1C, HIGH);
-        digitalWrite(MS2C, HIGH);
-        digitalWrite(MS3C, HIGH);
-        break;  
-    }
-  }
-}
-
-/**Sets the direction of the specified motor, inverts it if defined**/
-void setMotorDirection(char motor, boolean dir) {
-  if(motor == 'A') {            //If the specified motor is motor A (top carriages)
-    if(mInvDirA) {              //If the motor is marked as inverted
-      dir = !dir;               //Change the direction to the opposite of the given direction
-    }
-    mDirA = dir;                //Update the current motor direction variable
-    digitalWrite(dirA, dir);    //Set the direction of motor A
-  }
-  else if(motor == 'B') {       //If the specified motor is motor B (top clamp)
-    if(mInvDirB) {              //If the motor is marked as inverted
-      dir = !dir;               //Change the direction to the opposite of the given direction
-    }
-    mDirB = dir;                //Update the current motor direction variable
-    digitalWrite(dirB, dir);    //Set the direction of motor B
-  }
-  else if(motor == 'C') {       //If the specified motor is motor C (bottom clamp)
-    if(mInvDirC) {              //If the motor is marked as inverted
-      dir = !dir;               //Change the direction to the opposite of the given direction
-    }
-    mDirC = dir;                //Update the current motor direction variable
-    digitalWrite(dirC, dir);    //Set the direction of motor C
-  }
-}
-
-/**Saves the specified profile**/
-void saveProfile(int profileNum) {
-  int eeAddr;
-  
-  //Change the starting memory address of the initial data value depending on which profile is being saved
-  switch(profileNum) {
-    case(0):
-      eeAddr = 150;
-      break;
-    case(1):
-      eeAddr = 200;
-      break;
-    case(2):
-      eeAddr = 250;
-      break;
-    case(3):
-      eeAddr = 300;
-      break;
-    case(4):
-      eeAddr = 350;
-      break;
-    case(5):
-      eeAddr = 400;
-      break;
-    case(6):
-      eeAddr = 450;
-      break;
-    case(7):
-      eeAddr = 500;
-      break;
-    case(8):
-      eeAddr = 550;
-      break;
-    case(9):
-      eeAddr = 600;
-      break;
-  }
-
-  EEPROM.put(eeAddr, profile);        //Save the profile name (5byte/char limit)
-  eeAddr += sizeof(profile);          //Increase the address location to the next free spot
-  EEPROM.put(eeAddr, numProfSteps);   //Save the number of steps used in the profile
-  eeAddr += sizeof(int);              
-  EEPROM.put(eeAddr, tClampDist);    //Save the value of the top clamp position
-  eeAddr += sizeof(int);              
-  EEPROM.put(eeAddr, bClampDist);    //Save the value of the bottom clamp position
-  eeAddr += sizeof(int);    
-  EEPROM.put(eeAddr, hDist1);         //Save the value of the top/bottom carriage position
-  eeAddr += sizeof(int);
-  
-  if(numProfSteps == 2) {             //If there are 2 steps in the profile
-    EEPROM.put(eeAddr, hDist2);       //Save the second top/bottom carriage position
-    eeAddr += sizeof(int);
-  }
-  else if(numProfSteps == 3) {        //If there are 3 steps in the profile
-    EEPROM.put(eeAddr, hDist3);       //Save the third top/bottom carriage position
-    eeAddr += sizeof(int);
-  }
-}
-
-/**Loads the specified profile**/
-void loadProfile(int profileNum) {
-  int eeAddr;
-  
-  //Change the starting memory address of the initial data value depending on which profile is being loaded
-  switch(profileNum) {
-    case(0):
-      eeAddr = 150;
-      break;
-    case(1):
-      eeAddr = 200;
-      break;
-    case(2):
-      eeAddr = 250;
-      break;
-    case(3):
-      eeAddr = 300;
-      break;
-    case(4):
-      eeAddr = 350;
-      break;
-    case(5):
-      eeAddr = 400;
-      break;
-    case(6):
-      eeAddr = 450;
-      break;
-    case(7):
-      eeAddr = 500;
-      break;
-    case(8):
-      eeAddr = 550;
-      break;
-    case(9):
-      eeAddr = 600;
-      break;
-  }
-
-  EEPROM.get(eeAddr, profile);        //Load the profile name (5byte/char limit)
-  eeAddr += sizeof(profile);          //Increase the address location to the next free spot
-  EEPROM.get(eeAddr, numProfSteps);   //Load the number of steps used in the profile
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, tClampDist);    //Load the value of the top clamp position
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, bClampDist);    //Load the value of the bottom clamp position
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, hDist1);         //Load the value of the top/bottom carriage position
-  eeAddr += sizeof(int);
-  
-  if(numProfSteps == 2) {             //If there are 2 steps in the profile
-    EEPROM.get(eeAddr, hDist2);       //Load the second top/bottom carriage position
-    eeAddr += sizeof(int);
-  }
-  else if(numProfSteps == 3) {        //If there are 3 steps in the profile
-    EEPROM.get(eeAddr, hDist3);       //Load the third top/bottom carriage position
-    eeAddr += sizeof(int);
-  }
-}
-
-/**Saves the current values to the EEPROM **/
-void saveMachineSettings() {
-  int eeAddr = 0;
-
-  //Store touch calibration data
-  EEPROM.put(eeAddr, TS_LEFT);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, TS_RIGHT);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, TS_TOP);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, TS_BOT);
-  eeAddr += sizeof(int);
-
-  //Store homing offsets data
-  EEPROM.put(eeAddr, homeOffsetT);
-  eeAddr += sizeof(float);
-  EEPROM.put(eeAddr, homeOffsetB);
-  eeAddr += sizeof(float);
-  EEPROM.put(eeAddr, homeOffsetClampT);
-  eeAddr += sizeof(float);
-  EEPROM.put(eeAddr, homeOffsetClampB);
-  eeAddr += sizeof(float);
-
-  //Store steps/mm data
-  EEPROM.put(eeAddr, mStepsPerA);
-  eeAddr += sizeof(float);
-  EEPROM.put(eeAddr, mStepsPerB);
-  eeAddr += sizeof(float);
-  EEPROM.put(eeAddr, mStepsPerC);
-  eeAddr += sizeof(float);
-
-  //Store motor inversion settings
-  EEPROM.put(eeAddr, mInvDirA);
-  eeAddr += sizeof(boolean);
-  EEPROM.put(eeAddr, mInvDirB);
-  eeAddr += sizeof(boolean);
-  EEPROM.put(eeAddr, mInvDirC);
-  eeAddr += sizeof(boolean);
-
-  //Store microstepping data
-  EEPROM.put(eeAddr, mUStepA);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mUStepB);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mUStepC);
-  eeAddr += sizeof(int);
-
-  //Store velocity settings
-  EEPROM.put(eeAddr, mVelocityA);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mVelocityB);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mVelocityC);
-  eeAddr += sizeof(int);
-
-  //Store acceleration settings
-  EEPROM.put(eeAddr, mAccelA);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mAccelB);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mAccelC);
-  eeAddr += sizeof(int);
-  
-  //Store jerk settings
-  EEPROM.put(eeAddr, mJerkA);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mJerkB);
-  eeAddr += sizeof(int);
-  EEPROM.put(eeAddr, mJerkC);
-  eeAddr += sizeof(int);
-}
-
-/**Reads in the saved values to current objects**/
-void loadMachineSettings() {
-  int eeAddr = 0;
-
-  //Load touch calibration data
-  EEPROM.get(eeAddr, TS_LEFT);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, TS_RIGHT);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, TS_TOP);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, TS_BOT);
-  eeAddr += sizeof(int);
-
-  //Load homing offsets data
-  EEPROM.get(eeAddr, homeOffsetT);
-  eeAddr += sizeof(float);
-  EEPROM.get(eeAddr, homeOffsetB);
-  eeAddr += sizeof(float);
-  EEPROM.get(eeAddr, homeOffsetClampT);
-  eeAddr += sizeof(float);
-  EEPROM.get(eeAddr, homeOffsetClampB);
-  eeAddr += sizeof(float);
-
-  //Load steps/mm data
-  EEPROM.get(eeAddr, mStepsPerA);
-  eeAddr += sizeof(float);
-  EEPROM.get(eeAddr, mStepsPerB);
-  eeAddr += sizeof(float);
-  EEPROM.get(eeAddr, mStepsPerC);
-  eeAddr += sizeof(float);
-
-  //Load motor inversion settings
-  EEPROM.get(eeAddr, mInvDirA);
-  eeAddr += sizeof(boolean);
-  EEPROM.get(eeAddr, mInvDirB);
-  eeAddr += sizeof(boolean);
-  EEPROM.get(eeAddr, mInvDirC);
-  eeAddr += sizeof(boolean);
-
-  //Load microstepping data
-  EEPROM.get(eeAddr, mUStepA);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mUStepB);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mUStepC);
-  eeAddr += sizeof(int);
-
-  //Load velocity settings
-  EEPROM.get(eeAddr, mVelocityA);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mVelocityB);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mVelocityC);
-  eeAddr += sizeof(int);
-
-  //Load acceleration settings
-  EEPROM.get(eeAddr, mAccelA);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mAccelB);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mAccelC);
-  eeAddr += sizeof(int);
-  
-  //Load jerk settings
-  EEPROM.get(eeAddr, mJerkA);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mJerkB);
-  eeAddr += sizeof(int);
-  EEPROM.get(eeAddr, mJerkC);
-  eeAddr += sizeof(int);
-}
-
-/**Calculate a distance(mm) from the step count**/
-float convertStepsToDistance(int mSteps, float mStepsPer, int mUStep) {
-  //0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
-  float uStepF = 0;
-  switch(mUStep) {
-    case(0):
-      uStepF = 1;
-      break;
-    case(1):
-      uStepF = 1/2;
-      break;
-    case(2):
-      uStepF = 1/4;
-      break;
-    case(3):
-      uStepF = 1/8;
-      break;
-    case(4):
-      uStepF = 1/16;
-      break;
-  }
-  float distance = (mSteps / mStepsPer) * uStepF;
-  return distance;
-}
-
-/**Calculates the number of steps to meet a distane**/
-int convertDistanceToSteps(float distance, float mStepsPer, int mUStep) {
-  //0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
-  float uStepF = 0;
-  switch(mUStep) {
-    case(0):
-      uStepF = 1;
-      break;
-    case(1):
-      uStepF = 1/2;
-      break;
-    case(2):
-      uStepF = 1/4;
-      break;
-    case(3):
-      uStepF = 1/8;
-      break;
-    case(4):
-      uStepF = 1/16;
-      break;
-  }
-  float steps = (distance * mStepsPer) / uStepF;
-  return steps;
-}
-
-/**Wait for elapsed time without suspending program**/
-boolean wait(int waitTime, long timeStarted) {
-  if(millis() - timeStarted >= waitTime) {    //If the right amount of time has passed
-    return true;                              //Return 1 (true)
-  }
-  else {                                      //Otherwise
-    return false;                             //Return 0 (false)
-  }
-}
