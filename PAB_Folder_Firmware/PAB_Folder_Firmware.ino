@@ -1,4 +1,4 @@
-/*****LIBRARIES*****/
+ /*****LIBRARIES*****/
 #include <LCDWIKI_GUI.h> //LCD core graphics library
 #include <LCDWIKI_KBV.h> //LCD hardware-specific library
 #include <TouchScreen.h> //LCD touch library
@@ -90,18 +90,14 @@ int TS_BOT = 900;
 
 long doubleTapPeriod = 300;
 
-/////MACHINE SETTINGS
-//Homing Offsets
-float homeOffsetT = 0;
-float homeOffsetB = 0;
-float homeOffsetClampT = 0;
-float homeOffsetClampB = 0;
+int numSavedProfiles = 0;
 
-/////MOTOR SETTINGS
-//Motor Steps/mm
-float mStepsPerA = 80;
-float mStepsPerB = 80;
-float mStepsPerC = 80;
+//0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+//7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+//13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+//19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+//24=homeOffsetClampT, 25=homeOffsetClampB
+int varInputRegister = 0;
 
 //Motor Step Tracking
 int mStepsA = 0;
@@ -110,6 +106,7 @@ int mStepsC = 0;
 
 //Motor Enabled
 boolean enM = true;
+
 //Motor Direction
 boolean mDirA = 0;
 boolean mDirB = 0;
@@ -120,11 +117,15 @@ boolean mInvDirA = false;
 boolean mInvDirB = false;
 boolean mInvDirC = false;
 
-//Microstepping Value
-//0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
-int mUStepA = 4;
-int mUStepB = 4;
-int mUStepC = 4;
+/////PROFILE VALUES
+String profile = "     ";
+int numProfSteps = 1;
+int tClampDist = 0;
+int bClampDist = 0;
+int hDist1 = 0;
+int hDist2 = 0;
+int hDist3 = 0;
+int stepNum = 1;
 
 //Max Velocity (mm/s)
 int mVelocityA = 50;
@@ -151,26 +152,36 @@ int mJerkA = 7;
 int mJerkB = 7;
 int mJerkC = 7;
 
+//Microstepping Value
+//0=1, 1=1/2, 2=1/4, 3=1/8, 4=1/16
+int mUStepA = 4;
+int mUStepB = 4;
+int mUStepC = 4;
+
+/////MOTOR SETTINGS
+//Motor Steps/mm
+float mStepsPerA = 80;
+float mStepsPerB = 80;
+float mStepsPerC = 80;
+
+/////MACHINE SETTINGS
+//Homing Offsets
+float homeOffsetT = 0;
+float homeOffsetB = 0;
+float homeOffsetClampT = 0;
+float homeOffsetClampB = 0;
+
 /////CLAMP STATUS
 boolean tClampEngaged = false;
 boolean bClampEngaged = false;
 
-/////PROFILE VALUES
-String profile = "     ";
-int numProfSteps = 1;
-int tClampDist = 0;
-int bClampDist = 0;
-int hDist1 = 0;
-int hDist2 = 0;
-int hDist3 = 0;
-  
 /////GUI Relations
 int activeScreen = 0; //0 = home screen
-double inputVal = 0;
+float inputVal = 0;
+String inputBuilder = "";
 String profiles[10];
 
 int prevActiveScreen;
-float inputVar;
 
 /////BUTTON STATUS VARIABLES
 boolean loadBtnFlag = false;
@@ -417,7 +428,7 @@ int amount_Btn_Stop_y = amount_Btn_Start_y + manualBtnY;
 int backBtnX = 80;
 int backBtnY = 40;
 
-int confirmBtnX = 40;
+int confirmBtnX = 80;
 int confirmBtnY = 40;
 
 int profileBtnX = 40;
@@ -425,12 +436,12 @@ int profileBtnY = 80;
 
 //Button Positioning
 int pBack_Btn_Start_x = xPadding;
-int pBack_Btn_Start_y = yPadding;
+int pBack_Btn_Start_y = 320 - yPadding - backBtnX;
 int pBack_Btn_Stop_x = pBack_Btn_Start_x + backBtnX;
 int pBack_Btn_Stop_y = pBack_Btn_Start_y + backBtnY;
 
-int pCfm_Btn_Start_x = 320 - xPadding - confirmBtnX;
-int pCfm_Btn_Start_y = 480 - xPadding - confirmBtnY;
+int pCfm_Btn_Start_x = 480 - xPadding - confirmBtnX;
+int pCfm_Btn_Start_y = 320 - yPadding - confirmBtnY;
 int pCfm_Btn_Stop_x = pCfm_Btn_Start_x + confirmBtnX;
 int pCfm_Btn_Stop_y = pCfm_Btn_Start_y + confirmBtnY;
 
@@ -489,54 +500,106 @@ int p10_Btn_Stop_y = p10_Btn_Start_y + profileBtnY;
 int fieldBtnX = 100;
 int fieldBtnY = 40;
 
-int stepBtnX = 25;
-int stepBtnY = 25;
+int stepBtnX = 30;
+int stepBtnY = 30;
 
 int saveBtnX = 80;
 int saveBtnY = 40;
 
+int chgValBtnX = 40;
+int chgValBtnY = 40;
+
+float aAmt = 1;
+float bAmt = 1;
+float cAmt = 1;
+
 //Button Positioning
-int pnName_Btn_Start_x = xPadding + 50;
+int pnName_Btn_Start_x = xPadding + 175;
 int pnName_Btn_Start_y = 50;
-int pnName_Btn_Stop_x = pnName_Btn_Start_x + fieldBtnX;
+int pnName_Btn_Stop_x = pnName_Btn_Start_x + fieldBtnX * 2;
 int pnName_Btn_Stop_y = pnName_Btn_Start_y + fieldBtnY;
 
-int pnTClamp_Btn_Start_x = xPadding + 50;
-int pnTClamp_Btn_Start_y = pnName_Btn_Stop_y + yPadding + 15;
+int pnTClamp_Btn_Start_x = xPadding + 200;
+int pnTClamp_Btn_Start_y = pnName_Btn_Stop_y + yPadding + 10;
 int pnTClamp_Btn_Stop_x = pnTClamp_Btn_Start_x + fieldBtnX;
 int pnTClamp_Btn_Stop_y = pnTClamp_Btn_Start_y + fieldBtnY;
 
-int pnBClamp_Btn_Start_x = xPadding + 50;
-int pnBClamp_Btn_Start_y = pnTClamp_Btn_Stop_y + yPadding + 15;
+int pnBClamp_Btn_Start_x = xPadding + 200;
+int pnBClamp_Btn_Start_y = pnTClamp_Btn_Stop_y + yPadding + 10;
 int pnBClamp_Btn_Stop_x = pnBClamp_Btn_Start_x + fieldBtnX;
 int pnBClamp_Btn_Stop_y = pnBClamp_Btn_Start_y + fieldBtnY;
 
-int pnFCh_Btn_Start_x = xPadding + 50;
-int pnFCh_Btn_Start_y = pnBClamp_Btn_Stop_y + yPadding + 15;
+int pnFCh_Btn_Start_x = xPadding + 200;
+int pnFCh_Btn_Start_y = pnBClamp_Btn_Stop_y + yPadding + 10;
 int pnFCh_Btn_Stop_x = pnFCh_Btn_Start_x + fieldBtnX;
 int pnFCh_Btn_Stop_y = pnFCh_Btn_Start_y + fieldBtnY;
 
-int pnStp1_Btn_Start_x = xPadding + 100;
-int pnStp1_Btn_Start_y = pnFCh_Btn_Stop_y + yPadding + 30;
+int pnTDec_Btn_Start_x = pnTClamp_Btn_Stop_x + 25;
+int pnTDec_Btn_Start_y = pnTClamp_Btn_Start_y;
+int pnTDec_Btn_Stop_x = pnTDec_Btn_Start_x + chgValBtnX;
+int pnTDec_Btn_Stop_y = pnTDec_Btn_Start_y + chgValBtnY;
+
+int pnBDec_Btn_Start_x = pnBClamp_Btn_Stop_x + 25;
+int pnBDec_Btn_Start_y = pnBClamp_Btn_Start_y;
+int pnBDec_Btn_Stop_x = pnBDec_Btn_Start_x + chgValBtnX;
+int pnBDec_Btn_Stop_y = pnBDec_Btn_Start_y + chgValBtnY;
+
+int pnFDec_Btn_Start_x = pnFCh_Btn_Stop_x + 25;
+int pnFDec_Btn_Start_y = pnFCh_Btn_Start_y;
+int pnFDec_Btn_Stop_x = pnFDec_Btn_Start_x + chgValBtnX;
+int pnFDec_Btn_Stop_y = pnFDec_Btn_Start_y + chgValBtnY;
+
+int pnTInc_Btn_Start_x = pnTDec_Btn_Stop_x + 5;
+int pnTInc_Btn_Start_y = pnTClamp_Btn_Start_y;
+int pnTInc_Btn_Stop_x = pnTInc_Btn_Start_x + chgValBtnX;
+int pnTInc_Btn_Stop_y = pnTInc_Btn_Start_y + chgValBtnY;
+
+int pnBInc_Btn_Start_x = pnBDec_Btn_Stop_x + 5;
+int pnBInc_Btn_Start_y = pnBClamp_Btn_Start_y;
+int pnBInc_Btn_Stop_x = pnBInc_Btn_Start_x + chgValBtnX;
+int pnBInc_Btn_Stop_y = pnBInc_Btn_Start_y + chgValBtnY;
+
+int pnFInc_Btn_Start_x = pnFDec_Btn_Stop_x + 5;
+int pnFInc_Btn_Start_y = pnFCh_Btn_Start_y;
+int pnFInc_Btn_Stop_x = pnFInc_Btn_Start_x + chgValBtnX;
+int pnFInc_Btn_Stop_y = pnFInc_Btn_Start_y + chgValBtnY;
+
+int pnTamt_Btn_Start_x = pnTInc_Btn_Stop_x + 25;
+int pnTamt_Btn_Start_y = pnTClamp_Btn_Start_y;
+int pnTamt_Btn_Stop_x = pnTamt_Btn_Start_x + chgValBtnX;
+int pnTamt_Btn_Stop_y = pnTamt_Btn_Start_y + chgValBtnY;
+
+int pnBamt_Btn_Start_x = pnBInc_Btn_Stop_x + 25;
+int pnBamt_Btn_Start_y = pnBClamp_Btn_Start_y;
+int pnBamt_Btn_Stop_x = pnBamt_Btn_Start_x + chgValBtnX;
+int pnBamt_Btn_Stop_y = pnBamt_Btn_Start_y + chgValBtnY;
+
+int pnFamt_Btn_Start_x = pnFInc_Btn_Stop_x + 25;
+int pnFamt_Btn_Start_y = pnFCh_Btn_Start_y;
+int pnFamt_Btn_Stop_x = pnFamt_Btn_Start_x + chgValBtnX;
+int pnFamt_Btn_Stop_y = pnFamt_Btn_Start_y + chgValBtnY;
+
+int pnStp1_Btn_Start_x = xPadding + 140;
+int pnStp1_Btn_Start_y = pnFCh_Btn_Stop_y + yPadding + 20;
 int pnStp1_Btn_Stop_x = pnStp1_Btn_Start_x + stepBtnX;
 int pnStp1_Btn_Stop_y = pnStp1_Btn_Start_y + stepBtnY;
 
-int pnStp2_Btn_Start_x = xPadding + pnStp1_Btn_Stop_x;
+int pnStp2_Btn_Start_x = pnStp1_Btn_Stop_x + 10;
 int pnStp2_Btn_Start_y = pnStp1_Btn_Start_y;
 int pnStp2_Btn_Stop_x = pnStp2_Btn_Start_x + stepBtnX;
 int pnStp2_Btn_Stop_y = pnStp2_Btn_Start_y + stepBtnY;
 
-int pnStp3_Btn_Start_x = xPadding + pnStp2_Btn_Start_x;
+int pnStp3_Btn_Start_x = pnStp2_Btn_Stop_x + 10;
 int pnStp3_Btn_Start_y = pnStp1_Btn_Start_y;
 int pnStp3_Btn_Stop_x = pnStp3_Btn_Start_x + stepBtnX;
 int pnStp3_Btn_Stop_y = pnStp3_Btn_Start_y + stepBtnY;
 
-int pnStp4_Btn_Start_x = xPadding + pnStp3_Btn_Start_x;
+int pnStp4_Btn_Start_x = pnStp3_Btn_Stop_x + 10;
 int pnStp4_Btn_Start_y = pnStp1_Btn_Start_y;
 int pnStp4_Btn_Stop_x = pnStp4_Btn_Start_x + stepBtnX;
 int pnStp4_Btn_Stop_y = pnStp4_Btn_Start_y + stepBtnY;
 
-int pnStp5_Btn_Start_x = xPadding + pnStp4_Btn_Start_x;
+int pnStp5_Btn_Start_x = pnStp4_Btn_Stop_x + 10;
 int pnStp5_Btn_Start_y = pnStp1_Btn_Start_y;
 int pnStp5_Btn_Stop_x = pnStp5_Btn_Start_x + stepBtnX;
 int pnStp5_Btn_Stop_y = pnStp5_Btn_Start_y + stepBtnY;
@@ -596,33 +659,33 @@ int invBtnX = 25;
 int invBtnY = 25;
 
 //Button Positioning
-int mAuS_Btn_Start_x = 50;
-int mAuS_Btn_Start_y = 100;
+int mAuS_Btn_Start_x = 30;
+int mAuS_Btn_Start_y = 80;
 int mAuS_Btn_Stop_x = mAuS_Btn_Start_x + uSBtnX;
-int mAuS_Btn_Stop_y = mAuS_Btn_Stop_y + uSBtnY;
+int mAuS_Btn_Stop_y = mAuS_Btn_Start_y + uSBtnY;
 
-int mBuS_Btn_Start_x = mAuS_Btn_Start_x + uSBtnX + 10;
-int mBuS_Btn_Start_y = 100;
+int mBuS_Btn_Start_x = (480/2) - (uSBtnX / 2);
+int mBuS_Btn_Start_y = 80;
 int mBuS_Btn_Stop_x = mBuS_Btn_Start_x + uSBtnX;
-int mBuS_Btn_Stop_y = mBuS_Btn_Stop_y + uSBtnY;
+int mBuS_Btn_Stop_y = mBuS_Btn_Start_y + uSBtnY;
 
-int mCuS_Btn_Start_x = mBuS_Btn_Start_x + uSBtnX + 15;
-int mCuS_Btn_Start_y = 100;
+int mCuS_Btn_Start_x = 480 - uSBtnX - 30;
+int mCuS_Btn_Start_y = 80;
 int mCuS_Btn_Stop_x = mCuS_Btn_Start_x + uSBtnX;
 int mCuS_Btn_Stop_y = mCuS_Btn_Start_y + uSBtnY;
 
-int mAinv_Btn_Start_x = mAuS_Btn_Start_x;
-int mAinv_Btn_Start_y = 200;
+int mAinv_Btn_Start_x = mAuS_Btn_Start_x + 15;
+int mAinv_Btn_Start_y = 215;
 int mAinv_Btn_Stop_x = mAinv_Btn_Start_x + invBtnX;
 int mAinv_Btn_Stop_y = mAinv_Btn_Start_y + invBtnY;
 
-int mBinv_Btn_Start_x = mBuS_Btn_Start_x;
-int mBinv_Btn_Start_y = 200;
+int mBinv_Btn_Start_x = mBuS_Btn_Start_x + 15;
+int mBinv_Btn_Start_y = 215;
 int mBinv_Btn_Stop_x = mBinv_Btn_Start_x + invBtnX;
 int mBinv_Btn_Stop_y = mBinv_Btn_Start_y + invBtnY;
 
-int mCinv_Btn_Start_x = mCuS_Btn_Start_x;
-int mCinv_Btn_Start_y = 200;
+int mCinv_Btn_Start_x = mCuS_Btn_Start_x + 15;
+int mCinv_Btn_Start_y = 215;
 int mCinv_Btn_Stop_x = mCinv_Btn_Start_x + invBtnX;
 int mCinv_Btn_Stop_y = mCinv_Btn_Start_y + invBtnY;
 
@@ -631,40 +694,33 @@ int mCinv_Btn_Stop_y = mCinv_Btn_Start_y + invBtnY;
 int field2BtnX = 100;
 int field2BtnY = 40;
 
-int chgValBtnX = 40;
-int chgValBtnY = 40;
-
-float aAmt = 1;
-float bAmt = 1;
-float cAmt = 1;
-
 //Button Positioning
-int svAVal_Btn_Start_x = 30;
-int svAVal_Btn_Start_y = 40;
+int svAVal_Btn_Start_x = 150;
+int svAVal_Btn_Start_y = 65;
 int svAVal_Btn_Stop_x = svAVal_Btn_Start_x + fieldBtnX;
 int svAVal_Btn_Stop_y = svAVal_Btn_Start_y + fieldBtnY;
 
-int svBVal_Btn_Start_x = svAVal_Btn_Stop_x + 10;
+int svBVal_Btn_Start_x = svAVal_Btn_Start_x;
 int svBVal_Btn_Start_y = svAVal_Btn_Stop_y + 40;
 int svBVal_Btn_Stop_x = svBVal_Btn_Start_x + fieldBtnX;
 int svBVal_Btn_Stop_y = svBVal_Btn_Start_y + fieldBtnY;
 
-int svCVal_Btn_Start_x = svBVal_Btn_Stop_x + 10;
+int svCVal_Btn_Start_x = svAVal_Btn_Start_x;
 int svCVal_Btn_Start_y = svBVal_Btn_Stop_y + 40;
 int svCVal_Btn_Stop_x = svCVal_Btn_Start_x + fieldBtnX;
 int svCVal_Btn_Stop_y = svCVal_Btn_Start_y + fieldBtnY;
 
-int svADec_Btn_Start_x = svAVal_Btn_Stop_x + 10;
+int svADec_Btn_Start_x = svAVal_Btn_Stop_x + 65;
 int svADec_Btn_Start_y = svAVal_Btn_Start_y;
 int svADec_Btn_Stop_x = svADec_Btn_Start_x + chgValBtnX;
 int svADec_Btn_Stop_y = svADec_Btn_Start_y + chgValBtnY;
 
-int svBDec_Btn_Start_x = svBVal_Btn_Stop_x + 10;
+int svBDec_Btn_Start_x = svBVal_Btn_Stop_x + 65;
 int svBDec_Btn_Start_y = svBVal_Btn_Start_y;
 int svBDec_Btn_Stop_x = svBDec_Btn_Start_x + chgValBtnX;
 int svBDec_Btn_Stop_y = svBDec_Btn_Start_y + chgValBtnY;
 
-int svCDec_Btn_Start_x = svCVal_Btn_Stop_x + 10;
+int svCDec_Btn_Start_x = svCVal_Btn_Stop_x + 65;
 int svCDec_Btn_Start_y = svCVal_Btn_Start_y;
 int svCDec_Btn_Stop_x = svCDec_Btn_Start_x + chgValBtnX;
 int svCDec_Btn_Stop_y = svCDec_Btn_Start_y + chgValBtnY;
@@ -701,32 +757,32 @@ int svCamt_Btn_Stop_y = svCamt_Btn_Start_y + chgValBtnY;
 
 /*--------Acceleration Settings Screen-----------*/
 //Button Positioning
-int saAVal_Btn_Start_x = 30;
-int saAVal_Btn_Start_y = 40;
+int saAVal_Btn_Start_x = 150;
+int saAVal_Btn_Start_y = 65;
 int saAVal_Btn_Stop_x = saAVal_Btn_Start_x + fieldBtnX;
 int saAVal_Btn_Stop_y = saAVal_Btn_Start_y + fieldBtnY;
 
-int saBVal_Btn_Start_x = saAVal_Btn_Stop_x + 10;
+int saBVal_Btn_Start_x = saAVal_Btn_Start_x;
 int saBVal_Btn_Start_y = saAVal_Btn_Stop_y + 40;
 int saBVal_Btn_Stop_x = saBVal_Btn_Start_x + fieldBtnX;
 int saBVal_Btn_Stop_y = saBVal_Btn_Start_y + fieldBtnY;
 
-int saCVal_Btn_Start_x = saBVal_Btn_Stop_x + 10;
+int saCVal_Btn_Start_x = saAVal_Btn_Start_x;
 int saCVal_Btn_Start_y = saBVal_Btn_Stop_y + 40;
 int saCVal_Btn_Stop_x = saCVal_Btn_Start_x + fieldBtnX;
 int saCVal_Btn_Stop_y = saCVal_Btn_Start_y + fieldBtnY;
 
-int saADec_Btn_Start_x = saAVal_Btn_Stop_x + 10;
+int saADec_Btn_Start_x = saAVal_Btn_Stop_x + 65;
 int saADec_Btn_Start_y = saAVal_Btn_Start_y;
 int saADec_Btn_Stop_x = saADec_Btn_Start_x + chgValBtnX;
 int saADec_Btn_Stop_y = saADec_Btn_Start_y + chgValBtnY;
 
-int saBDec_Btn_Start_x = saBVal_Btn_Stop_x + 10;
+int saBDec_Btn_Start_x = saBVal_Btn_Stop_x + 65;
 int saBDec_Btn_Start_y = saBVal_Btn_Start_y;
 int saBDec_Btn_Stop_x = saBDec_Btn_Start_x + chgValBtnX;
 int saBDec_Btn_Stop_y = saBDec_Btn_Start_y + chgValBtnY;
 
-int saCDec_Btn_Start_x = saCVal_Btn_Stop_x + 10;
+int saCDec_Btn_Start_x = saCVal_Btn_Stop_x + 65;
 int saCDec_Btn_Start_y = saCVal_Btn_Start_y;
 int saCDec_Btn_Stop_x = saCDec_Btn_Start_x + chgValBtnX;
 int saCDec_Btn_Stop_y = saCDec_Btn_Start_y + chgValBtnY;
@@ -763,32 +819,32 @@ int saCamt_Btn_Stop_y = saCamt_Btn_Start_y + chgValBtnY;
 
 /*--------Jerk Settings Screen-----------*/
 //Button Positioning
-int sjAVal_Btn_Start_x = 30;
-int sjAVal_Btn_Start_y = 40;
+int sjAVal_Btn_Start_x = 150;
+int sjAVal_Btn_Start_y = 65;
 int sjAVal_Btn_Stop_x = sjAVal_Btn_Start_x + fieldBtnX;
 int sjAVal_Btn_Stop_y = sjAVal_Btn_Start_y + fieldBtnY;
 
-int sjBVal_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
+int sjBVal_Btn_Start_x = sjAVal_Btn_Start_x;
 int sjBVal_Btn_Start_y = sjAVal_Btn_Stop_y + 40;
 int sjBVal_Btn_Stop_x = sjBVal_Btn_Start_x + fieldBtnX;
 int sjBVal_Btn_Stop_y = sjBVal_Btn_Start_y + fieldBtnY;
 
-int sjCVal_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
+int sjCVal_Btn_Start_x = sjAVal_Btn_Start_x;
 int sjCVal_Btn_Start_y = sjBVal_Btn_Stop_y + 40;
 int sjCVal_Btn_Stop_x = sjCVal_Btn_Start_x + fieldBtnX;
 int sjCVal_Btn_Stop_y = sjCVal_Btn_Start_y + fieldBtnY;
 
-int sjADec_Btn_Start_x = sjAVal_Btn_Stop_x + 10;
+int sjADec_Btn_Start_x = sjAVal_Btn_Stop_x + 65;
 int sjADec_Btn_Start_y = sjAVal_Btn_Start_y;
 int sjADec_Btn_Stop_x = sjADec_Btn_Start_x + chgValBtnX;
 int sjADec_Btn_Stop_y = sjADec_Btn_Start_y + chgValBtnY;
 
-int sjBDec_Btn_Start_x = sjBVal_Btn_Stop_x + 10;
+int sjBDec_Btn_Start_x = sjBVal_Btn_Stop_x + 65;
 int sjBDec_Btn_Start_y = sjBVal_Btn_Start_y;
 int sjBDec_Btn_Stop_x = sjBDec_Btn_Start_x + chgValBtnX;
 int sjBDec_Btn_Stop_y = sjBDec_Btn_Start_y + chgValBtnY;
 
-int sjCDec_Btn_Start_x = sjCVal_Btn_Stop_x + 10;
+int sjCDec_Btn_Start_x = sjCVal_Btn_Stop_x + 65;
 int sjCDec_Btn_Start_y = sjCVal_Btn_Start_y;
 int sjCDec_Btn_Stop_x = sjCDec_Btn_Start_x + chgValBtnX;
 int sjCDec_Btn_Stop_y = sjCDec_Btn_Start_y + chgValBtnY;
@@ -825,32 +881,32 @@ int sjCamt_Btn_Stop_y = sjCamt_Btn_Start_y + chgValBtnY;
 
 /*--------Steps/mm Settings Screen-----------*/
 //Button Positioning
-int ssmmAVal_Btn_Start_x = 30;
-int ssmmAVal_Btn_Start_y = 40;
+int ssmmAVal_Btn_Start_x = 150;
+int ssmmAVal_Btn_Start_y = 65;
 int ssmmAVal_Btn_Stop_x = ssmmAVal_Btn_Start_x + fieldBtnX;
 int ssmmAVal_Btn_Stop_y = ssmmAVal_Btn_Start_y + fieldBtnY;
 
-int ssmmBVal_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
+int ssmmBVal_Btn_Start_x = ssmmAVal_Btn_Start_x;
 int ssmmBVal_Btn_Start_y = ssmmAVal_Btn_Stop_y + 40;
 int ssmmBVal_Btn_Stop_x = ssmmBVal_Btn_Start_x + fieldBtnX;
 int ssmmBVal_Btn_Stop_y = ssmmBVal_Btn_Start_y + fieldBtnY;
 
-int ssmmCVal_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
+int ssmmCVal_Btn_Start_x = ssmmAVal_Btn_Start_x;
 int ssmmCVal_Btn_Start_y = ssmmBVal_Btn_Stop_y + 40;
 int ssmmCVal_Btn_Stop_x = ssmmCVal_Btn_Start_x + fieldBtnX;
 int ssmmCVal_Btn_Stop_y = ssmmCVal_Btn_Start_y + fieldBtnY;
 
-int ssmmADec_Btn_Start_x = ssmmAVal_Btn_Stop_x + 10;
+int ssmmADec_Btn_Start_x = ssmmAVal_Btn_Stop_x + 65;
 int ssmmADec_Btn_Start_y = ssmmAVal_Btn_Start_y;
 int ssmmADec_Btn_Stop_x = ssmmADec_Btn_Start_x + chgValBtnX;
 int ssmmADec_Btn_Stop_y = ssmmADec_Btn_Start_y + chgValBtnY;
 
-int ssmmBDec_Btn_Start_x = ssmmBVal_Btn_Stop_x + 10;
+int ssmmBDec_Btn_Start_x = ssmmBVal_Btn_Stop_x + 65;
 int ssmmBDec_Btn_Start_y = ssmmBVal_Btn_Start_y;
 int ssmmBDec_Btn_Stop_x = ssmmBDec_Btn_Start_x + chgValBtnX;
 int ssmmBDec_Btn_Stop_y = ssmmBDec_Btn_Start_y + chgValBtnY;
 
-int ssmmCDec_Btn_Start_x = ssmmCVal_Btn_Stop_x + 10;
+int ssmmCDec_Btn_Start_x = ssmmCVal_Btn_Stop_x + 65;
 int ssmmCDec_Btn_Start_y = ssmmCVal_Btn_Start_y;
 int ssmmCDec_Btn_Stop_x = ssmmCDec_Btn_Start_x + chgValBtnX;
 int ssmmCDec_Btn_Stop_y = ssmmCDec_Btn_Start_y + chgValBtnY;
@@ -964,6 +1020,7 @@ int numOk_Btn_Stop_y = numOk_Btn_Start_y + numBtnY;
 /*******************/
 
 void setup() {
+  Serial.begin(9600);
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
 
@@ -996,9 +1053,8 @@ void setup() {
   tft.Set_Text_Mode(0);
 
   //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
-  activeScreen = 4;
-  //drawMainScreen();
-  drawMachineSettingsScreen();
+  activeScreen = 0;
+  drawMainScreen();
   /***************/
   
   /***Motor Setup***/  
@@ -1281,37 +1337,37 @@ void drawMainScreen() {
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String("Top Clamp Position: ", xPadding * 2, (yPadding*4) + settingBtnY + 25);
+  tft.Print_String("Top Clamp Position: ", 25, (yPadding*4) + settingBtnY + 20);
 
   //Top Clamp Position Text
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String((String)convertStepsToDistance(mStepsB, mStepsPerB, mUStepB) + "mm", xPadding + 180, (yPadding*4) + settingBtnY + 25);
+  tft.Print_String((String)convertStepsToDistance(mStepsB, mStepsPerB, mUStepB) + "mm", xPadding + 180, (yPadding*4) + settingBtnY + 20);
 
   //Bottom Clamp Position Title
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String("Bottom Clamp Position: ", xPadding * 2, (yPadding*5) + settingBtnY + 50);
+  tft.Print_String("Bottom Clamp Position: ", 25, (yPadding*5) + settingBtnY + 40);
  
   //Bottom Clamp Position Text
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String((String)convertStepsToDistance(mStepsC, mStepsPerC, mUStepC) + "mm", xPadding + 180, (yPadding*5) + settingBtnY + 50);
+  tft.Print_String((String)convertStepsToDistance(mStepsC, mStepsPerC, mUStepC) + "mm", xPadding + 180, (yPadding*5) + settingBtnY + 40);
 
   //Vertical Chassis Position Title
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String("Blade Position: ", xPadding * 2, (yPadding*6) + settingBtnY + 75);
+  tft.Print_String("Blade Position: ", 25, (yPadding*6) + settingBtnY + 60);
 
   //Vertical Chassis Position Text
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
   tft.Set_Text_Size(1);
-  tft.Print_String((String)convertStepsToDistance(mStepsA, mStepsPerA, mUStepA) + "mm", xPadding + 180, (yPadding*6) + settingBtnY + 75);
+  tft.Print_String((String)convertStepsToDistance(mStepsA, mStepsPerA, mUStepA) + "mm", xPadding + 180, (yPadding*6) + settingBtnY + 60);
 }
 
 /**Get touch readings and redraw changes**/
@@ -1876,7 +1932,7 @@ void drawInputScreen() {
   tft.Set_Text_Size(4);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+  tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
   
   //Button 'Delete'
   tft.Set_Draw_color(RED);
@@ -2048,25 +2104,18 @@ void updateInputScreen() {
     //Flag the delete button as pressed
     delBtnFlag = true;
     
-    int integerPart = (int)inputVal;
-    float decimalPart = (inputVal - integerPart);        
-    
-    if(decimalBtnFlag) {
-      inputVal = integerPart + ((inputVal - integerPart)/10);
-    }
-    else {   
-      inputVal = (integerPart / 10) + decimalPart;  
-      
-      if(inputVal < 0.01) {    //If the new value is less than the display precision (0.00)
-        inputVal = 0;           //Set the input value to 0
-      }
-    }
+    unsigned int len = inputBuilder.length();
+    inputBuilder.remove(len-1);
+    inputBuilder.trim();
+
+    tft.Set_Draw_color(BLACK);
+    tft.Fill_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
     tft.Set_Draw_color(YELLOW);
     tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
     tft.Set_Text_Size(4);
     tft.Set_Text_Back_colour(BLACK);
     tft.Set_Text_colour(YELLOW);
-    tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+    tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     delay(50);
   }
   else if(delBtnFlag) {
@@ -2156,29 +2205,15 @@ void updateInputScreen() {
       tft.Set_Text_colour(BLACK);
       tft.Print_String("1", num1_Btn_Start_x + 70, num1_Btn_Start_y + 18);
 
-      //TODO: Add '1' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (1/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + numBtnX + xPadding, yPadding, 480 - numBtnX - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 1;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      inputBuilder += "1";
+     
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n1BtnFlag = true;
@@ -2193,7 +2228,7 @@ void updateInputScreen() {
     tft.Set_Text_Size(3);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
-    tft.Print_String("2", num1_Btn_Start_x + 70, num1_Btn_Start_y + 18);
+    tft.Print_String("1", num1_Btn_Start_x + 70, num1_Btn_Start_y + 18);
 
     n1BtnFlag = false;
   }
@@ -2240,29 +2275,15 @@ void updateInputScreen() {
       tft.Set_Text_colour(BLACK);
       tft.Print_String("2", num2_Btn_Start_x + 70, num2_Btn_Start_y + 18);
       
-      //TODO: Add '2' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (2/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 2;           //Move decimal one point left
+      inputBuilder += "2";
 
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n2BtnFlag = true;
@@ -2324,29 +2345,15 @@ void updateInputScreen() {
       tft.Set_Text_colour(BLACK);
       tft.Print_String("3", num3_Btn_Start_x + 70, num3_Btn_Start_y + 18);
 
-      //TODO: Add '3' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (3/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 3;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      inputBuilder += "3";
+      
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n3BtnFlag = true;
@@ -2408,29 +2415,15 @@ void updateInputScreen() {
       tft.Set_Text_colour(BLACK);
       tft.Print_String("4", num4_Btn_Start_x + 70, num4_Btn_Start_y + 18);
 
-      //TODO: Add '4' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (4/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 4;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      inputBuilder += "4";
+      
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n4BtnFlag = true;
@@ -2491,30 +2484,16 @@ void updateInputScreen() {
       tft.Set_Text_Back_colour(GRAY);
       tft.Set_Text_colour(BLACK);
       tft.Print_String("5", num5_Btn_Start_x + 70, num5_Btn_Start_y + 18);
+     
+      inputBuilder += "5";
 
-      //TODO: Add '5' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (5/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 5;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n5BtnFlag = true;
@@ -2575,31 +2554,17 @@ void updateInputScreen() {
       tft.Set_Text_Back_colour(GRAY);
       tft.Set_Text_colour(BLACK);
       tft.Print_String("6", num6_Btn_Start_x + 70, num6_Btn_Start_y + 18);
+  
+      inputBuilder += "6";
 
-      //TODO: Add '6' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + (inputVal - integerPart)/10 + 6/10;
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 6;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-    }
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
+   }
     //Flag the delete button as pressed
     n6BtnFlag = true;
     delay(50);
@@ -2659,30 +2624,16 @@ void updateInputScreen() {
       tft.Set_Text_Back_colour(GRAY);
       tft.Set_Text_colour(BLACK);
       tft.Print_String("7", num7_Btn_Start_x + 70, num7_Btn_Start_y + 18);
-
-      //TODO: Add '7' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (7/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 7;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+    
+      inputBuilder += "7";
+      
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n7BtnFlag = true;
@@ -2744,29 +2695,15 @@ void updateInputScreen() {
       tft.Set_Text_colour(BLACK);
       tft.Print_String("8", num8_Btn_Start_x + 70, num8_Btn_Start_y + 18);
 
-      //TODO: Add '8' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (8/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 8;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      inputBuilder += "8";
+      
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     }
     //Flag the delete button as pressed
     n8BtnFlag = true;
@@ -2820,30 +2757,16 @@ void updateInputScreen() {
       tft.Set_Text_Back_colour(GRAY);
       tft.Set_Text_colour(BLACK);
       tft.Print_String("9", num9_Btn_Start_x + 70, num9_Btn_Start_y + 18);
-
-      //TODO: Add '9' to the input
-      if(decimalBtnFlag) {
-        int integerPart = (int)inputVal;
-        int decimalPart = (inputVal - integerPart);        
-        inputVal = integerPart + ((inputVal - integerPart)/10) + (9/10);
-        
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
-      else {    
-        inputVal = (inputVal * 10) + 9;           //Move decimal one point left
-
-        tft.Set_Draw_color(YELLOW);
-        tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
-        tft.Set_Text_Size(4);
-        tft.Set_Text_Back_colour(BLACK);
-        tft.Set_Text_colour(YELLOW);
-        tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
-      }
+      
+      inputBuilder += "9";
+ 
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
     } 
     //Flag the delete button as pressed
     n9BtnFlag = true;
@@ -2935,9 +2858,20 @@ void updateInputScreen() {
       tft.Set_Text_Back_colour(GRAY);
       tft.Set_Text_colour(BLACK);
       tft.Print_String(".", numPd_Btn_Start_x + 68, numPd_Btn_Start_y + 18);
-      
+
+      inputBuilder += ".";
+            
       //Flag the decimal button as pressed
       decimalBtnFlag = true;  
+      
+      tft.Set_Draw_color(YELLOW);
+      tft.Draw_Rectangle(xPadding + (numBtnX / 2) + xPadding, yPadding, 480 - (numBtnX / 2) - (xPadding * 2), numBtnY + yPadding);
+      tft.Set_Text_Size(4);
+      tft.Set_Text_Back_colour(BLACK);
+      tft.Set_Text_colour(YELLOW);
+      //tft.Print_Number_Float(inputVal, 2, numBtnX + 45, yPadding + 18, '.', 0, ' ');   //(double num, uint8_t dec, int16_t x, int16_t y, uint8_t divider, int16_t length, uint8_t filler)
+      tft.Print_String(inputBuilder, numBtnX + 45, yPadding + 18);
+      
       delay(50);
     }
     else {
@@ -2970,52 +2904,138 @@ void updateInputScreen() {
     //Flag the delete button as pressed
     okBtnFlag = true;
 
-        if(prevActiveScreen == 0) {
-      activeScreen = prevActiveScreen;
-      drawMainScreen();
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    switch(varInputRegister) {
+      case(0):
+        break;
+      case(1):
+        profile = inputBuilder;
+        break;
+      case(2):
+        tClampDist = inputBuilder.toFloat();
+        break;
+      case(3):
+        bClampDist = inputBuilder.toFloat();
+        break;
+      case(4):
+        hDist1 = inputBuilder.toFloat();
+        break;
+      case(5):
+        hDist2 = inputBuilder.toFloat();
+        break;
+      case(6):
+        hDist3 = inputBuilder.toFloat();
+        break;
+      case(7):
+        mVelocityA = inputBuilder.toFloat();
+        break;
+      case(8):
+        mVelocityB = inputBuilder.toFloat();
+        break;
+      case(9):
+        mVelocityC = inputBuilder.toFloat();
+        break;
+      case(10):
+        mAccelA = inputBuilder.toFloat();
+        break;
+      case(11):
+        mAccelB = inputBuilder.toFloat();
+        break;
+      case(12):
+        mAccelC = inputBuilder.toFloat();
+        break;
+      case(13):
+        mJerkA = inputBuilder.toFloat();
+        break;
+      case(14):
+        mJerkB = inputBuilder.toFloat();
+        break;
+      case(15):
+        mJerkC = inputBuilder.toFloat();
+        break;
+      case(16):
+        //mUStepA = inputBuilder.toFloat();
+        break;
+      case(17):
+        //mUStepB = inputBuilder.toFloat();
+        break;
+      case(18):
+        //mUStepC = inputBuilder.toFloat();
+        break;
+      case(19):
+        mStepsPerA = inputBuilder.toFloat();
+        break;
+      case(20):
+        mStepsPerB = inputBuilder.toFloat();
+        break;
+      case(21):
+        mStepsPerC = inputBuilder.toFloat();
+        break;
+      case(22):
+        homeOffsetT = inputBuilder.toFloat();
+        break;
+      case(23):
+        homeOffsetB = inputBuilder.toFloat();
+        break;
+      case(24):
+        homeOffsetClampT = inputBuilder.toFloat();
+        break;
+      case(25):
+        homeOffsetClampB = inputBuilder.toFloat();
+        break;
     }
-    else if(prevActiveScreen == 1) {
-      activeScreen = prevActiveScreen;
-      drawProfileLoadScreen();
-    }
-    else if(prevActiveScreen == 2) {
-      activeScreen = prevActiveScreen;
-      drawNewProfileScreen();
-    }
-    else if(prevActiveScreen == 3) {
-      activeScreen = prevActiveScreen;
-      drawEditProfileScreen();
-    }
-    else if(prevActiveScreen == 4) {
-      activeScreen = prevActiveScreen;
-      drawMachineSettingsScreen();
-    }
-    else if(prevActiveScreen == 5){ 
-      activeScreen = prevActiveScreen;
-      drawInputScreen();
-    }
-    else if(prevActiveScreen == 6) {
-      activeScreen = prevActiveScreen;
-      drawVelScreen();
-    }
-    else if(prevActiveScreen == 7) {
-      activeScreen = prevActiveScreen;
-      drawAccelScreen();
-    }
-    else if(prevActiveScreen == 8) {
-      activeScreen = prevActiveScreen;
-      drawJerkScreen();
-    }
-    else if(prevActiveScreen = 9) {
-      activeScreen = prevActiveScreen;
-      drawMicrostepScreen();
-    }
-    else if(prevActiveScreen == 10) {
-      activeScreen = prevActiveScreen;
-      drawStepsMMScreen();
+
+    switch(prevActiveScreen) {
+      case(0):
+        activeScreen = prevActiveScreen;
+        drawMainScreen();
+        break;
+      case(1):
+        activeScreen = prevActiveScreen;
+        drawProfileLoadScreen();      
+        break;
+      case(2):
+        activeScreen = prevActiveScreen;
+        drawNewProfileScreen();     
+        break;
+      case(3):
+        activeScreen = prevActiveScreen;
+        drawEditProfileScreen();
+        break;
+      case(4):
+        activeScreen = prevActiveScreen;
+        drawMachineSettingsScreen();
+        break;
+      case(5):
+        activeScreen = prevActiveScreen;
+        drawInputScreen();     
+        break;
+      case(6):
+        activeScreen = prevActiveScreen;
+        drawVelScreen();
+        break;
+      case(7):
+        activeScreen = prevActiveScreen;
+        drawAccelScreen();
+        break;
+      case(8):
+        activeScreen = prevActiveScreen;
+        drawJerkScreen();
+        break;
+      case(9):
+        activeScreen = prevActiveScreen;
+        drawMicrostepScreen();
+        break;
+      case(10):
+        activeScreen = prevActiveScreen;
+        drawStepsMMScreen();
+        break;
     }
     delay(50);
-    //TODO: 
   }
   else if(okBtnFlag) {
     //Button 'Ok'
@@ -3036,7 +3056,17 @@ void updateInputScreen() {
 void drawProfileLoadScreen() {
   tft.Fill_Screen(BLACK);    //Change the screen to solid black
 
-  int numSavedProfiles = 0;
+  //Machine Settings Title Border
+  tft.Set_Draw_color(YELLOW);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
+
+  //Machine Settings Title
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("Load Profile", 200, yPadding + 12);
+  
+  numSavedProfiles = 0;
   int eeAddr = 150;
   byte readData = 0xff;
 
@@ -3055,7 +3085,7 @@ void drawProfileLoadScreen() {
   tft.Fill_Rectangle(pBack_Btn_Start_x, pBack_Btn_Start_y, pBack_Btn_Stop_x, pBack_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pBack_Btn_Start_x, pBack_Btn_Start_y, pBack_Btn_Stop_x, pBack_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
   tft.Print_String("Back", pBack_Btn_Start_x + 25, pBack_Btn_Start_y + 17);
@@ -3065,114 +3095,114 @@ void drawProfileLoadScreen() {
   tft.Fill_Rectangle(pCfm_Btn_Start_x, pCfm_Btn_Start_y, pCfm_Btn_Stop_x, pCfm_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pCfm_Btn_Start_x, pCfm_Btn_Start_y, pCfm_Btn_Stop_x, pCfm_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
   tft.Print_String("Confirm", pCfm_Btn_Start_x + 25, pCfm_Btn_Start_y + 17);
 
-  if(numSavedProfiles == 1) {
+  if(numSavedProfiles >= 1) {
     //Button 'Profile 1'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[0], p1_Btn_Start_x + 17, p1_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 2) {
+  if(numSavedProfiles >= 2) {
     //Button 'Profile 2'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[1], p2_Btn_Start_x + 17, p2_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 3) {
+  if(numSavedProfiles >= 3) {
     //Button 'Profile 3'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p2_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p2_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[2], p3_Btn_Start_x + 17, p3_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 4) {
+  if(numSavedProfiles >= 4) {
     //Button 'Profile 4'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[3], p4_Btn_Start_x + 17, p4_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 5) {
+  if(numSavedProfiles >= 5) {
     //Button 'Profile 5'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[4], p5_Btn_Start_x + 17, p5_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 6) {
+  if(numSavedProfiles >= 6) {
     //Button 'Profile 6'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[5], p6_Btn_Start_x + 17, p6_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 7) {
+  if(numSavedProfiles >= 7) {
     //Button 'Profile 7'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[6], p7_Btn_Start_x + 17, p7_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 8) {
+  if(numSavedProfiles >= 8) {
     //Button 'Profile 8'
     tft.Set_Draw_color(WHITE);
     tft.Fill_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[7], p8_Btn_Start_x + 17, p8_Btn_Start_y + 17);
   }
 
-  if(numSavedProfiles == 9) {
+  if(numSavedProfiles >= 9) {
   //Button 'Profile 9'
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
   tft.Print_String(profiles[8], p9_Btn_Start_x + 17, p9_Btn_Start_y + 17);
@@ -3184,7 +3214,7 @@ void drawProfileLoadScreen() {
     tft.Fill_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
     tft.Set_Draw_color(GRAY);
     tft.Draw_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
-    tft.Set_Text_Size(1);
+    tft.Set_Text_Size(2);
     tft.Set_Text_Back_colour(WHITE);
     tft.Set_Text_colour(BLACK);
     tft.Print_String(profiles[9], p10_Btn_Start_x + 17, p10_Btn_Start_y + 17);
@@ -3193,7 +3223,7 @@ void drawProfileLoadScreen() {
 
 /**Get touch readings and redraw changes**/
 void updateProfileLoadScreen() {
-    /***Touch Update***/
+  /***Touch Update***/
   TSPoint p = ts.getPoint();  //Leaves pins in input mode. Shared by lcd so must revert to output after reading.
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
@@ -3271,7 +3301,7 @@ void updateProfileLoadScreen() {
   }
 
   //'Profile 1' Button
-  if(x > p1_Btn_Start_x && x < p1_Btn_Stop_x && y > p1_Btn_Start_y && y < p1_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 1 && x > p1_Btn_Start_x && x < p1_Btn_Stop_x && y > p1_Btn_Start_y && y < p1_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p1BtnFlag = !p1BtnFlag;
 
     if(p1BtnFlag) {
@@ -3290,25 +3320,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO: 
     }
-  }
-  else {
-    //Button 'Profile 1'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[0], p1_Btn_Start_x + 17, p1_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p1BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 1'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p1_Btn_Start_x, p1_Btn_Start_y, p1_Btn_Stop_x, p1_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[0], p1_Btn_Start_x + 17, p1_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p1BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 2' Button
-  if(x > p2_Btn_Start_x && x < p2_Btn_Stop_x && y > p2_Btn_Start_y && y < p2_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 2 && x > p2_Btn_Start_x && x < p2_Btn_Stop_x && y > p2_Btn_Start_y && y < p2_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p2BtnFlag = !p2BtnFlag;
 
     if(p2BtnFlag) {
@@ -3327,25 +3357,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 2'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[1], p2_Btn_Start_x + 17, p2_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p2BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 2'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p2_Btn_Start_x, p2_Btn_Start_y, p2_Btn_Stop_x, p2_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[1], p2_Btn_Start_x + 17, p2_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p2BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 3' Button
-  if(x > p3_Btn_Start_x && x < p3_Btn_Stop_x && y > p3_Btn_Start_y && y < p3_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 3 && x > p3_Btn_Start_x && x < p3_Btn_Stop_x && y > p3_Btn_Start_y && y < p3_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p3BtnFlag = !p3BtnFlag;
 
     if(p3BtnFlag) {
@@ -3364,25 +3394,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 3'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p3_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p3_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[2], p3_Btn_Start_x + 17, p3_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p3BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 3'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p3_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p3_Btn_Start_x, p3_Btn_Start_y, p3_Btn_Stop_x, p3_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[2], p3_Btn_Start_x + 17, p3_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p3BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 4' Button
-  if(x > p4_Btn_Start_x && x < p4_Btn_Stop_x && y > p4_Btn_Start_y && y < p4_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 4 && x > p4_Btn_Start_x && x < p4_Btn_Stop_x && y > p4_Btn_Start_y && y < p4_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p4BtnFlag = !p4BtnFlag;
 
     if(p4BtnFlag) {
@@ -3400,26 +3430,27 @@ void updateProfileLoadScreen() {
       p4BtnFlag = true;
       delay(50);
       //TODO:
-    }
-  }
-  else {
-    //Button 'Profile 4'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[3], p4_Btn_Start_x + 17, p4_Btn_Start_y + 17);
 
-    //Flag the delete button as pressed
-    p4BtnFlag = false;
-    delay(50);
+    }
+    else {
+      //Button 'Profile 4'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p4_Btn_Start_x, p4_Btn_Start_y, p4_Btn_Stop_x, p4_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[3], p4_Btn_Start_x + 17, p4_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p4BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 5' Button
-  if(x > p5_Btn_Start_x && x < p5_Btn_Stop_x && y > p5_Btn_Start_y && y < p5_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 5 && x > p5_Btn_Start_x && x < p5_Btn_Stop_x && y > p5_Btn_Start_y && y < p5_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p5BtnFlag = !p5BtnFlag;
 
     if(p5BtnFlag) {
@@ -3438,25 +3469,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
+    else {
+      //Button 'Profile 5'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[4], p5_Btn_Start_x + 17, p5_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p5BtnFlag = false;
+      delay(50);
+    }
   }
-  else {
-    //Button 'Profile 5'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p5_Btn_Start_x, p5_Btn_Start_y, p5_Btn_Stop_x, p5_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[4], p5_Btn_Start_x + 17, p5_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p5BtnFlag = false;
-    delay(50);
-  }
-
+  
   //'Profile 6' Button
-  if(x > p6_Btn_Start_x && x < p6_Btn_Stop_x && y > p6_Btn_Start_y && y < p6_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 6 && x > p6_Btn_Start_x && x < p6_Btn_Stop_x && y > p6_Btn_Start_y && y < p6_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p6BtnFlag = !p6BtnFlag;
 
     if(p6BtnFlag) {
@@ -3475,25 +3506,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 6'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[5], p6_Btn_Start_x + 17, p6_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p6BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 6'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p6_Btn_Start_x, p6_Btn_Start_y, p6_Btn_Stop_x, p6_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[5], p6_Btn_Start_x + 17, p6_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p6BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 7' Button
-  if(x > p7_Btn_Start_x && x < p7_Btn_Stop_x && y > p7_Btn_Start_y && y < p7_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 7 && x > p7_Btn_Start_x && x < p7_Btn_Stop_x && y > p7_Btn_Start_y && y < p7_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p7BtnFlag = !p7BtnFlag;
 
     if(p7BtnFlag) {
@@ -3512,25 +3543,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 7'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[6], p7_Btn_Start_x + 17, p7_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p7BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 7'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p7_Btn_Start_x, p7_Btn_Start_y, p7_Btn_Stop_x, p7_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[6], p7_Btn_Start_x + 17, p7_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p7BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 8' Button
-  if(x > p8_Btn_Start_x && x < p8_Btn_Stop_x && y > p8_Btn_Start_y && y < p8_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 8 && x > p8_Btn_Start_x && x < p8_Btn_Stop_x && y > p8_Btn_Start_y && y < p8_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p8BtnFlag = !p8BtnFlag;
 
     if(p8BtnFlag) {
@@ -3549,25 +3580,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 8'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[7], p8_Btn_Start_x + 17, p8_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p8BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 8'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p8_Btn_Start_x, p8_Btn_Start_y, p8_Btn_Stop_x, p8_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[7], p8_Btn_Start_x + 17, p8_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p8BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 9' Button
-  if(x > p9_Btn_Start_x && x < p9_Btn_Stop_x && y > p9_Btn_Start_y && y < p9_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles >= 9 && x > p9_Btn_Start_x && x < p9_Btn_Stop_x && y > p9_Btn_Start_y && y < p9_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p9BtnFlag = !p9BtnFlag;
 
     if(p9BtnFlag) {
@@ -3586,25 +3617,25 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 9'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[8], p9_Btn_Start_x + 17, p9_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p9BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 9'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p9_Btn_Start_x, p9_Btn_Start_y, p9_Btn_Stop_x, p9_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[8], p9_Btn_Start_x + 17, p9_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p9BtnFlag = false;
+      delay(50);
+    }
   }
 
   //'Profile 10' Button
-  if(x > p10_Btn_Start_x && x < p10_Btn_Stop_x && y > p10_Btn_Start_y && y < p10_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  if(numSavedProfiles == 10 && x > p10_Btn_Start_x && x < p10_Btn_Stop_x && y > p10_Btn_Start_y && y < p10_Btn_Stop_y && p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     p10BtnFlag = !p10BtnFlag;
 
     if(p10BtnFlag) {
@@ -3623,21 +3654,21 @@ void updateProfileLoadScreen() {
       delay(50);
       //TODO:
     }
-  }
-  else {
-    //Button 'Profile 10'
-    tft.Set_Draw_color(WHITE);
-    tft.Fill_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
-    tft.Set_Draw_color(GRAY);
-    tft.Draw_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
-    tft.Set_Text_Size(1);
-    tft.Set_Text_Back_colour(WHITE);
-    tft.Set_Text_colour(BLACK);
-    tft.Print_String(profiles[9], p10_Btn_Start_x + 17, p10_Btn_Start_y + 17);
-
-    //Flag the delete button as pressed
-    p10BtnFlag = false;
-    delay(50);
+    else {
+      //Button 'Profile 10'
+      tft.Set_Draw_color(WHITE);
+      tft.Fill_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
+      tft.Set_Draw_color(GRAY);
+      tft.Draw_Rectangle(p10_Btn_Start_x, p10_Btn_Start_y, p10_Btn_Stop_x, p10_Btn_Stop_y);
+      tft.Set_Text_Size(1);
+      tft.Set_Text_Back_colour(WHITE);
+      tft.Set_Text_colour(BLACK);
+      tft.Print_String(profiles[9], p10_Btn_Start_x + 17, p10_Btn_Start_y + 17);
+  
+      //Flag the delete button as pressed
+      p10BtnFlag = false;
+      delay(50);
+    }
   }
 }
 
@@ -3647,153 +3678,261 @@ void drawNewProfileScreen() {
 
   //Profile Configuration Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Profile Configuration Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(GREEN);
-  tft.Print_String("Profile Configuration", 30, pnName_Btn_Start_y);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("Profile Configuration", 115, yPadding + 12);
 
   //Profile Name Text
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(GREEN);
-  tft.Print_String("Profile Name: ", 30, pnName_Btn_Start_y);
+  tft.Print_String("Profile Name: ", 10, pnName_Btn_Start_y + 12);
 
   //Profile Name Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnName_Btn_Start_x, pnName_Btn_Start_y, pnName_Btn_Stop_x, pnName_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnName_Btn_Start_x, pnName_Btn_Start_y, pnName_Btn_Stop_x, pnName_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("(tap to input)", pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 17);
+  tft.Print_String("(tap to input)", pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 13);
 
   //Top Clamp Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Top Clamp Position: ", 30, pnTClamp_Btn_Start_y);
+  tft.Print_String("Top Clamp Position: ", 30, pnTClamp_Btn_Start_y + 17);
 
   //Top Clamp Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnTClamp_Btn_Start_x, pnTClamp_Btn_Start_y, pnTClamp_Btn_Stop_x, pnTClamp_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnTClamp_Btn_Start_x, pnTClamp_Btn_Start_y, pnTClamp_Btn_Stop_x, pnTClamp_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("(tap to input)", pnTClamp_Btn_Start_x + 17, pnTClamp_Btn_Start_y + 17);
+  tft.Print_String("0.00", pnTClamp_Btn_Start_x + 27, pnTClamp_Btn_Start_y + 14);
 
   //Bottom Clamp Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Bottom Clamp Position", 30, pnBClamp_Btn_Start_y);
+  tft.Print_String("Bottom Clamp Position: ", 30, pnBClamp_Btn_Start_y + 17);
 
   //Bottom Clamp Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBClamp_Btn_Start_x, pnBClamp_Btn_Start_y, pnBClamp_Btn_Stop_x, pnBClamp_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBClamp_Btn_Start_x, pnBClamp_Btn_Start_y, pnBClamp_Btn_Stop_x, pnBClamp_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("(tap to input)", pnBClamp_Btn_Start_x + 17, pnBClamp_Btn_Start_y + 17);
+  tft.Print_String("0.00", pnBClamp_Btn_Start_x + 27, pnBClamp_Btn_Start_y + 14);
 
   //Frame Chassis Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Frame Chassis Position", 30, pnFCh_Btn_Start_y);
+  tft.Print_String("Frame Chassis Position: ", 30, pnFCh_Btn_Start_y + 17);
 
   //Frame Chassis Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnFCh_Btn_Start_x, pnFCh_Btn_Start_y, pnFCh_Btn_Stop_x, pnFCh_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnFCh_Btn_Start_x, pnFCh_Btn_Start_y, pnFCh_Btn_Stop_x, pnFCh_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("0.00", pnFCh_Btn_Start_x + 27, pnFCh_Btn_Start_y + 14);
+
+  //Motor A Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnTClamp_Btn_Stop_x + 4, pnTClamp_Btn_Start_y + 17);
+
+  //Motor B Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnBClamp_Btn_Stop_x + 4, pnBClamp_Btn_Start_y + 17);
+  
+  //Motor C Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnFCh_Btn_Stop_x + 4, pnFCh_Btn_Start_y + 17);
+
+  //Decrease A Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTDec_Btn_Start_x, pnTDec_Btn_Start_y, pnTDec_Btn_Stop_x, pnTDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTDec_Btn_Start_x, pnTDec_Btn_Start_y, pnTDec_Btn_Stop_x, pnTDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnTDec_Btn_Start_x + 16, pnTDec_Btn_Start_y + 14);
+
+  //Increase A Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTInc_Btn_Start_x, pnTInc_Btn_Start_y, pnTInc_Btn_Stop_x, pnTInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTInc_Btn_Start_x, pnTInc_Btn_Start_y, pnTInc_Btn_Stop_x, pnTInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnTInc_Btn_Start_x + 15, pnTInc_Btn_Start_y + 14);
+
+  //Amount Button A
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTamt_Btn_Start_x, pnTamt_Btn_Start_y, pnTamt_Btn_Stop_x, pnTamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTamt_Btn_Start_x, pnTamt_Btn_Start_y, pnTamt_Btn_Stop_x, pnTamt_Btn_Stop_y);
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("(tap to input)", pnFCh_Btn_Start_x + 17, pnFCh_Btn_Start_y + 17);
+  tft.Print_String("0.1", pnTamt_Btn_Start_x + 11, pnTamt_Btn_Start_y + 18);
 
+  //Decrease B Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBDec_Btn_Start_x, pnBDec_Btn_Start_y, pnBDec_Btn_Stop_x, pnBDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBDec_Btn_Start_x, pnBDec_Btn_Start_y, pnBDec_Btn_Stop_x, pnBDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnBDec_Btn_Start_x + 16, pnBDec_Btn_Start_y + 14);
+
+  //Increase B Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBInc_Btn_Start_x, pnBInc_Btn_Start_y, pnBInc_Btn_Stop_x, pnBInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBInc_Btn_Start_x, pnBInc_Btn_Start_y, pnBInc_Btn_Stop_x, pnBInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnBInc_Btn_Start_x + 15, pnBInc_Btn_Start_y + 14);
+
+  //Amount Button B
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBamt_Btn_Start_x, pnBamt_Btn_Start_y, pnBamt_Btn_Stop_x, pnBamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBamt_Btn_Start_x, pnBamt_Btn_Start_y, pnBamt_Btn_Stop_x, pnBamt_Btn_Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("0.1", pnBamt_Btn_Start_x + 11, pnBamt_Btn_Start_y + 18);
+
+  //Decrease C Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFDec_Btn_Start_x, pnFDec_Btn_Start_y, pnFDec_Btn_Stop_x, pnFDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFDec_Btn_Start_x, pnFDec_Btn_Start_y, pnFDec_Btn_Stop_x, pnFDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnFDec_Btn_Start_x + 16, pnFDec_Btn_Start_y + 14);
+
+  //Increase C Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFInc_Btn_Start_x, pnFInc_Btn_Start_y, pnFInc_Btn_Stop_x, pnFInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFInc_Btn_Start_x, pnFInc_Btn_Start_y, pnFInc_Btn_Stop_x, pnFInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnFInc_Btn_Start_x + 15, pnFInc_Btn_Start_y + 14);
+
+  //Amount Button C
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFamt_Btn_Start_x, pnFamt_Btn_Start_y, pnFamt_Btn_Stop_x, pnFamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFamt_Btn_Start_x, pnFamt_Btn_Start_y, pnFamt_Btn_Stop_x, pnFamt_Btn_Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("0.1", pnFamt_Btn_Start_x + 11, pnFamt_Btn_Start_y + 18);
+  
   //Number of Steps Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Num of Steps", 30, pnStp1_Btn_Start_y);
+  tft.Print_String("Fold Process Steps", 195, pnStp1_Btn_Start_y - 15);
 
   //Number of Steps Button 1
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp1_Btn_Start_x, pnStp1_Btn_Start_y, pnStp1_Btn_Stop_x, pnStp1_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp1_Btn_Start_x, pnStp1_Btn_Start_y, pnStp1_Btn_Stop_x, pnStp1_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("1", pnStp1_Btn_Start_x + 17, pnStp1_Btn_Start_y + 17);
+  tft.Print_String("1", pnStp1_Btn_Start_x + 10, pnStp1_Btn_Start_y + 10);
 
   //Number of Steps Button 2
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp2_Btn_Start_x, pnStp2_Btn_Start_y, pnStp2_Btn_Stop_x, pnStp2_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp2_Btn_Start_x, pnStp2_Btn_Start_y, pnStp2_Btn_Stop_x, pnStp2_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("2", pnStp2_Btn_Start_x + 17, pnStp2_Btn_Start_y + 17);
+  tft.Print_String("2", pnStp2_Btn_Start_x + 10, pnStp2_Btn_Start_y + 10);
 
   //Number of Steps Button 3
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp3_Btn_Start_x, pnStp3_Btn_Start_y, pnStp3_Btn_Stop_x, pnStp3_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp3_Btn_Start_x, pnStp3_Btn_Start_y, pnStp3_Btn_Stop_x, pnStp3_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("3", pnStp3_Btn_Start_x + 17, pnStp3_Btn_Start_y + 17);
+  tft.Print_String("3", pnStp3_Btn_Start_x + 10, pnStp3_Btn_Start_y + 10);
 
   //Number of Steps Button 4
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp4_Btn_Start_x, pnStp4_Btn_Start_y, pnStp4_Btn_Stop_x, pnStp4_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp4_Btn_Start_x, pnStp4_Btn_Start_y, pnStp4_Btn_Stop_x, pnStp4_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("4", pnStp4_Btn_Start_x + 17, pnStp4_Btn_Start_y + 17);
+  tft.Print_String("4", pnStp4_Btn_Start_x + 10, pnStp4_Btn_Start_y + 10);
 
   //Number of Steps Button 5
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp5_Btn_Start_x, pnStp5_Btn_Start_y, pnStp5_Btn_Stop_x, pnStp5_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp5_Btn_Start_x, pnStp5_Btn_Start_y, pnStp5_Btn_Stop_x, pnStp5_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("5", pnStp5_Btn_Start_x + 17, pnStp5_Btn_Start_y + 17);
+  tft.Print_String("5", pnStp5_Btn_Start_x + 10, pnStp5_Btn_Start_y + 10);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -3830,6 +3969,13 @@ void updateNewProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 2;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 1;
+      inputBuilder = "";
       drawInputScreen();
       delay(50);
     }
@@ -3873,6 +4019,13 @@ void updateNewProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 2;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 2;
+      inputBuilder = "";
       drawInputScreen();
       delay(50);
     }
@@ -3916,6 +4069,13 @@ void updateNewProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 2;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 3;
+      inputBuilder = "";
       drawInputScreen();
       delay(50);
     }
@@ -3958,7 +4118,22 @@ void updateNewProfileScreen() {
 
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 2;
-      activeScreen = 5;
+      activeScreen = 5;      
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      if(stepNum == 1) {
+        varInputRegister = 4;
+      }
+      else if(stepNum == 2) {
+        varInputRegister = 5;
+      }
+      else if(stepNum == 3) {
+        varInputRegister = 6;
+      }
+      inputBuilder = "";
       drawInputScreen();
       delay(50);    
     }
@@ -3998,6 +4173,7 @@ void updateNewProfileScreen() {
         
       //Flag the button as pressed
       pnStp1BtnFlag = true;
+      stepNum = 1;
       delay(50);
     }
     else {
@@ -4035,6 +4211,7 @@ void updateNewProfileScreen() {
         
       //Flag the button as pressed
       pnStp2BtnFlag = true;  
+      stepNum = 2;
       delay(50);
       //TODO: Toggle this step on and the others off
     }
@@ -4073,6 +4250,7 @@ void updateNewProfileScreen() {
         
       //Flag the button as pressed
       pnStp3BtnFlag = true;
+      stepNum = 3;
       delay(50);
     }
     else {
@@ -4110,6 +4288,7 @@ void updateNewProfileScreen() {
      
       //Flag the button as pressed
       pnStp4BtnFlag = true;   
+      stepNum = 4;
       delay(50);    
     }
     else {
@@ -4147,6 +4326,7 @@ void updateNewProfileScreen() {
         
       //Flag the button as pressed
       pnStp5BtnFlag = true;
+      stepNum = 5;
       delay(50);
     }
     else {
@@ -4180,8 +4360,10 @@ void updateNewProfileScreen() {
       
     //Flag the delete button as pressed
     pnBckBtnFlag = true;
-    drawMainScreen();
+    varInputRegister = 0;
+    inputBuilder = "";
     activeScreen = 0;
+    drawMainScreen();
     delay(50);
   }
   else if(pnBckBtnFlag) {
@@ -4212,8 +4394,10 @@ void updateNewProfileScreen() {
       
     //Flag the delete button as pressed
     pnSaveBtnFlag = true;
-    
+    varInputRegister = 0;
+    inputBuilder = "";
     //TODO: Save profile and move to position
+    saveProfile(numSavedProfiles);
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
     activeScreen = 0;
     drawMainScreen();
@@ -4240,153 +4424,261 @@ void drawEditProfileScreen() {
 
   //Profile Configuration Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Profile Configuration Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
-  tft.Set_Text_colour(GREEN);
-  tft.Print_String("Profile Configuration", 30, pnName_Btn_Start_y);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("Profile Configuration", 115, yPadding + 12);
 
   //Profile Name Text
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(GREEN);
-  tft.Print_String("Profile Name: ", 30, pnName_Btn_Start_y);
+  tft.Print_String("Profile Name: ", 10, pnName_Btn_Start_y + 12);
 
   //Profile Name Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnName_Btn_Start_x, pnName_Btn_Start_y, pnName_Btn_Stop_x, pnName_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnName_Btn_Start_x, pnName_Btn_Start_y, pnName_Btn_Stop_x, pnName_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)profile, pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 17);
+  tft.Print_String((String)profile, pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 13);
 
   //Top Clamp Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Top Clamp Position: ", 30, pnTClamp_Btn_Start_y);
+  tft.Print_String("Top Clamp Position: ", 30, pnTClamp_Btn_Start_y + 17);
 
   //Top Clamp Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnTClamp_Btn_Start_x, pnTClamp_Btn_Start_y, pnTClamp_Btn_Stop_x, pnTClamp_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnTClamp_Btn_Start_x, pnTClamp_Btn_Start_y, pnTClamp_Btn_Stop_x, pnTClamp_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)tClampDist, pnTClamp_Btn_Start_x + 17, pnTClamp_Btn_Start_y + 17);
+  tft.Print_String((String)tClampDist, pnTClamp_Btn_Start_x + 27, pnTClamp_Btn_Start_y + 14);
 
   //Bottom Clamp Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Bottom Clamp Position: ", 30, pnBClamp_Btn_Start_y);
+  tft.Print_String("Bottom Clamp Position: ", 30, pnBClamp_Btn_Start_y + 17);
 
   //Bottom Clamp Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBClamp_Btn_Start_x, pnBClamp_Btn_Start_y, pnBClamp_Btn_Stop_x, pnBClamp_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBClamp_Btn_Start_x, pnBClamp_Btn_Start_y, pnBClamp_Btn_Stop_x, pnBClamp_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)bClampDist, pnBClamp_Btn_Start_x + 17, pnBClamp_Btn_Start_y + 17);
+  tft.Print_String((String)bClampDist, pnBClamp_Btn_Start_x + 27, pnBClamp_Btn_Start_y + 14);
 
   //Frame Chassis Position Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Frame Chassis Position", 30, pnFCh_Btn_Start_y);
+  tft.Print_String("Frame Chassis Position", 30, pnFCh_Btn_Start_y + 17);
 
   //Frame Chassis Position Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnFCh_Btn_Start_x, pnFCh_Btn_Start_y, pnFCh_Btn_Stop_x, pnFCh_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnFCh_Btn_Start_x, pnFCh_Btn_Start_y, pnFCh_Btn_Stop_x, pnFCh_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String((String)hDist1, pnFCh_Btn_Start_x + 27, pnFCh_Btn_Start_y + 14);
+
+  //Motor A Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnTClamp_Btn_Stop_x + 4, pnTClamp_Btn_Start_y + 17);
+
+  //Motor B Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnBClamp_Btn_Stop_x + 4, pnBClamp_Btn_Start_y + 17);
+  
+  //Motor C Units Text
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(BLACK);
+  tft.Set_Text_colour(YELLOW);
+  tft.Print_String("mm", pnFCh_Btn_Stop_x + 4, pnFCh_Btn_Start_y + 17);
+
+  //Decrease A Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTDec_Btn_Start_x, pnTDec_Btn_Start_y, pnTDec_Btn_Stop_x, pnTDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTDec_Btn_Start_x, pnTDec_Btn_Start_y, pnTDec_Btn_Stop_x, pnTDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnTDec_Btn_Start_x + 16, pnTDec_Btn_Start_y + 14);
+
+  //Increase A Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTInc_Btn_Start_x, pnTInc_Btn_Start_y, pnTInc_Btn_Stop_x, pnTInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTInc_Btn_Start_x, pnTInc_Btn_Start_y, pnTInc_Btn_Stop_x, pnTInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnTInc_Btn_Start_x + 15, pnTInc_Btn_Start_y + 14);
+
+  //Amount Button A
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnTamt_Btn_Start_x, pnTamt_Btn_Start_y, pnTamt_Btn_Stop_x, pnTamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnTamt_Btn_Start_x, pnTamt_Btn_Start_y, pnTamt_Btn_Stop_x, pnTamt_Btn_Stop_y);
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)hDist1, pnFCh_Btn_Start_x + 17, pnFCh_Btn_Start_y + 17);
+  tft.Print_String("0.1", pnTamt_Btn_Start_x + 11, pnTamt_Btn_Start_y + 18);
 
+  //Decrease B Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBDec_Btn_Start_x, pnBDec_Btn_Start_y, pnBDec_Btn_Stop_x, pnBDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBDec_Btn_Start_x, pnBDec_Btn_Start_y, pnBDec_Btn_Stop_x, pnBDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnBDec_Btn_Start_x + 16, pnBDec_Btn_Start_y + 14);
+
+  //Increase B Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBInc_Btn_Start_x, pnBInc_Btn_Start_y, pnBInc_Btn_Stop_x, pnBInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBInc_Btn_Start_x, pnBInc_Btn_Start_y, pnBInc_Btn_Stop_x, pnBInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnBInc_Btn_Start_x + 15, pnBInc_Btn_Start_y + 14);
+
+  //Amount Button B
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnBamt_Btn_Start_x, pnBamt_Btn_Start_y, pnBamt_Btn_Stop_x, pnBamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnBamt_Btn_Start_x, pnBamt_Btn_Start_y, pnBamt_Btn_Stop_x, pnBamt_Btn_Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("0.1", pnBamt_Btn_Start_x + 11, pnBamt_Btn_Start_y + 18);
+
+  //Decrease C Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFDec_Btn_Start_x, pnFDec_Btn_Start_y, pnFDec_Btn_Stop_x, pnFDec_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFDec_Btn_Start_x, pnFDec_Btn_Start_y, pnFDec_Btn_Stop_x, pnFDec_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("-", pnFDec_Btn_Start_x + 16, pnFDec_Btn_Start_y + 14);
+
+  //Increase C Button
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFInc_Btn_Start_x, pnFInc_Btn_Start_y, pnFInc_Btn_Stop_x, pnFInc_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFInc_Btn_Start_x, pnFInc_Btn_Start_y, pnFInc_Btn_Stop_x, pnFInc_Btn_Stop_y);
+  tft.Set_Text_Size(2);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("+", pnFInc_Btn_Start_x + 15, pnFInc_Btn_Start_y + 14);
+
+  //Amount Button C
+  tft.Set_Draw_color(WHITE);
+  tft.Fill_Rectangle(pnFamt_Btn_Start_x, pnFamt_Btn_Start_y, pnFamt_Btn_Stop_x, pnFamt_Btn_Stop_y);
+  tft.Set_Draw_color(GRAY);
+  tft.Draw_Rectangle(pnFamt_Btn_Start_x, pnFamt_Btn_Start_y, pnFamt_Btn_Stop_x, pnFamt_Btn_Stop_y);
+  tft.Set_Text_Size(1);
+  tft.Set_Text_Back_colour(WHITE);
+  tft.Set_Text_colour(BLACK);
+  tft.Print_String("0.1", pnFamt_Btn_Start_x + 11, pnFamt_Btn_Start_y + 18);
+  
   //Number of Steps Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(WHITE);
-  tft.Print_String("Num of Steps", 30, pnStp1_Btn_Start_y);
+  tft.Print_String("Fold Process Steps", 195, pnStp1_Btn_Start_y - 15);
 
   //Number of Steps Button 1
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp1_Btn_Start_x, pnStp1_Btn_Start_y, pnStp1_Btn_Stop_x, pnStp1_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp1_Btn_Start_x, pnStp1_Btn_Start_y, pnStp1_Btn_Stop_x, pnStp1_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("1", pnStp1_Btn_Start_x + 17, pnStp1_Btn_Start_y + 17);
+  tft.Print_String("1", pnStp1_Btn_Start_x + 10, pnStp1_Btn_Start_y + 10);
 
   //Number of Steps Button 2
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp2_Btn_Start_x, pnStp2_Btn_Start_y, pnStp2_Btn_Stop_x, pnStp2_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp2_Btn_Start_x, pnStp2_Btn_Start_y, pnStp2_Btn_Stop_x, pnStp2_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("2", pnStp2_Btn_Start_x + 17, pnStp2_Btn_Start_y + 17);
+  tft.Print_String("2", pnStp2_Btn_Start_x + 10, pnStp2_Btn_Start_y + 10);
 
   //Number of Steps Button 3
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp3_Btn_Start_x, pnStp3_Btn_Start_y, pnStp3_Btn_Stop_x, pnStp3_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp3_Btn_Start_x, pnStp3_Btn_Start_y, pnStp3_Btn_Stop_x, pnStp3_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("3", pnStp3_Btn_Start_x + 17, pnStp3_Btn_Start_y + 17);
+  tft.Print_String("3", pnStp3_Btn_Start_x + 10, pnStp3_Btn_Start_y + 10);
 
   //Number of Steps Button 4
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp4_Btn_Start_x, pnStp4_Btn_Start_y, pnStp4_Btn_Stop_x, pnStp4_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp4_Btn_Start_x, pnStp4_Btn_Start_y, pnStp4_Btn_Stop_x, pnStp4_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("4", pnStp4_Btn_Start_x + 17, pnStp4_Btn_Start_y + 17);
+  tft.Print_String("4", pnStp4_Btn_Start_x + 10, pnStp4_Btn_Start_y + 10);
 
   //Number of Steps Button 5
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnStp5_Btn_Start_x, pnStp5_Btn_Start_y, pnStp5_Btn_Stop_x, pnStp5_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnStp5_Btn_Start_x, pnStp5_Btn_Start_y, pnStp5_Btn_Stop_x, pnStp5_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("5", pnStp5_Btn_Start_x + 17, pnStp5_Btn_Start_y + 17);
+  tft.Print_String("5", pnStp5_Btn_Start_x + 10, pnStp5_Btn_Start_y + 10);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -4413,7 +4705,7 @@ void updateEditProfileScreen() {
       tft.Set_Text_Size(1);
       tft.Set_Text_Back_colour(WHITE);
       tft.Set_Text_colour(BLACK);
-      tft.Print_String((String)profile, pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 17);
+      tft.Print_String(profile, pnName_Btn_Start_x + 17, pnName_Btn_Start_y + 17);
         
       //Flag the delete button as pressed
       pnNameBtnFlag = true;
@@ -4422,6 +4714,13 @@ void updateEditProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 3;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 1;
+      inputBuilder = profile;
       drawInputScreen();
       delay(50);
     }
@@ -4466,6 +4765,13 @@ void updateEditProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 3;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 2;
+      inputBuilder = tClampDist;
       drawInputScreen();
       delay(50);
     }
@@ -4510,6 +4816,13 @@ void updateEditProfileScreen() {
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 3;
       activeScreen = 5;
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      varInputRegister = 3;
+      inputBuilder = bClampDist;
       drawInputScreen();
       delay(50);
     }
@@ -4553,7 +4866,24 @@ void updateEditProfileScreen() {
       //TODO: Load input screen and display data
       //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
       prevActiveScreen = 3;
-      activeScreen = 5;
+      activeScreen = 5;      
+      //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+      //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+      //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+      //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+      //24=homeOffsetClampT, 25=homeOffsetClampB
+      if(stepNum == 1) {
+        varInputRegister = 4;
+        inputBuilder = hDist1;
+      }
+      else if(stepNum == 2) {
+        varInputRegister = 5;
+        inputBuilder = hDist1;
+      }
+      else if(stepNum == 3) {
+        varInputRegister = 6;
+        inputBuilder = hDist1;
+      }
       drawInputScreen();
       delay(50);    
     }
@@ -4593,6 +4923,7 @@ void updateEditProfileScreen() {
         
       //Flag the delete button as pressed
       pnStp1BtnFlag = true;
+      stepNum = 1;
       delay(50);
       //TODO:
     }
@@ -4631,6 +4962,7 @@ void updateEditProfileScreen() {
         
       //Flag the delete button as pressed
       pnStp2BtnFlag = true;
+      stepNum = 2;
       delay(50);
       //TODO:
     }
@@ -4669,6 +5001,7 @@ void updateEditProfileScreen() {
         
       //Flag the delete button as pressed
       pnStp3BtnFlag = true;
+      stepNum = 3;
       delay(50);
       //TODO:
     }
@@ -4707,6 +5040,7 @@ void updateEditProfileScreen() {
         
       //Flag the delete button as pressed
       pnStp4BtnFlag = true;
+      stepNum = 4;
       delay(50);
       //TODO:
     
@@ -4746,6 +5080,7 @@ void updateEditProfileScreen() {
         
       //Flag the delete button as pressed
       pnStp5BtnFlag = true;
+      stepNum = 5;
       delay(50);
       //TODO:
     }
@@ -4781,9 +5116,11 @@ void updateEditProfileScreen() {
     //Flag the delete button as pressed
     pnBckBtnFlag = true;
 
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
-    drawMainScreen();
     activeScreen = 0;
+    drawMainScreen();
     delay(50);
   }
   else if(pnBckBtnFlag) {
@@ -4816,6 +5153,9 @@ void updateEditProfileScreen() {
     pnSaveBtnFlag = true;
     
     //TODO: Save profile and move to position
+    varInputRegister = 0;
+    inputBuilder = "";
+    saveProfile(numSavedProfiles);
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=step/mm
     activeScreen = 0;
     drawMainScreen();
@@ -5168,6 +5508,7 @@ void updateMachineSettingsScreen() {
 
     //TODO: Save
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
+    saveMachineSettings();
     activeScreen = 0;
     drawMainScreen();
     delay(50);
@@ -5193,99 +5534,99 @@ void drawVelScreen() {
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Machine Settings Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Velocity Settings", 240, yPadding);
+  tft.Print_String("Velocity Settings", 145, yPadding + 12);
 
   //Motor A Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
+  tft.Print_String("Top Clamp Motor (A): ", xPadding, svAVal_Btn_Start_y + 17);
 
   //Motor B Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
+  tft.Print_String("Bottom Clamp Motor (B): ", xPadding, svBVal_Btn_Start_y + 17);
   
   //Motor C Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
+  tft.Print_String("Carriage Motors (C): ", xPadding, svCVal_Btn_Start_y + 17);
 
   //Top Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svAVal_Btn_Start_x, svAVal_Btn_Start_y, svAVal_Btn_Stop_x, svAVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svAVal_Btn_Start_x, svAVal_Btn_Start_y, svAVal_Btn_Stop_x, svAVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mVelocityA, svAVal_Btn_Start_x + 17, svAVal_Btn_Start_y + 17);
+  tft.Print_String((String)mVelocityA, svAVal_Btn_Start_x + 37, svAVal_Btn_Start_y + 14);
 
   //Bottom Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svBVal_Btn_Start_x, svBVal_Btn_Start_y, svBVal_Btn_Stop_x, svBVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svBVal_Btn_Start_x, svBVal_Btn_Start_y, svBVal_Btn_Stop_x, svBVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mVelocityB, svBVal_Btn_Start_x + 17, svBVal_Btn_Start_y + 17);
+  tft.Print_String((String)mVelocityB, svBVal_Btn_Start_x + 37, svBVal_Btn_Start_y + 14);
   
   //Frame Carriage Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svCVal_Btn_Start_x, svCVal_Btn_Start_y, svCVal_Btn_Stop_x, svCVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svCVal_Btn_Start_x, svCVal_Btn_Start_y, svCVal_Btn_Stop_x, svCVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mVelocityC, svCVal_Btn_Start_x + 17, svCVal_Btn_Start_y + 17);
+  tft.Print_String((String)mVelocityC, svCVal_Btn_Start_x + 37, svCVal_Btn_Start_y + 14);
 
   //Motor A Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s", svAVal_Btn_Stop_x + 5, svAVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s", svAVal_Btn_Stop_x + 5, svAVal_Btn_Start_y + 17);
 
   //Motor B Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s", svBVal_Btn_Stop_x + 5, svBVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s", svBVal_Btn_Stop_x + 5, svBVal_Btn_Start_y + 17);
   
   //Motor C Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s", svCVal_Btn_Stop_x + 5, svCVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s", svCVal_Btn_Stop_x + 5, svCVal_Btn_Start_y + 17);
 
   //Decrease A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svADec_Btn_Start_x, svADec_Btn_Start_y, svADec_Btn_Stop_x, svADec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svADec_Btn_Start_x, svADec_Btn_Start_y, svADec_Btn_Stop_x, svADec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", svADec_Btn_Start_x + 7, svADec_Btn_Start_y + 15);
+  tft.Print_String("-", svADec_Btn_Start_x + 16, svADec_Btn_Start_y + 14);
 
   //Increase A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svAInc_Btn_Start_x, svAInc_Btn_Start_y, svAInc_Btn_Stop_x, svAInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svAInc_Btn_Start_x, svAInc_Btn_Start_y, svAInc_Btn_Stop_x, svAInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", svAInc_Btn_Start_x + 7, svAInc_Btn_Start_y + 15);
+  tft.Print_String("+", svAInc_Btn_Start_x + 15, svAInc_Btn_Start_y + 14);
 
   //Amount Button A
   tft.Set_Draw_color(WHITE);
@@ -5295,27 +5636,27 @@ void drawVelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", svAamt_Btn_Start_x + 7, svAamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", svAamt_Btn_Start_x + 9, svAamt_Btn_Start_y + 17);
 
   //Decrease B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svBDec_Btn_Start_x, svBDec_Btn_Start_y, svBDec_Btn_Stop_x, svBDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svBDec_Btn_Start_x, svBDec_Btn_Start_y, svBDec_Btn_Stop_x, svBDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", svBDec_Btn_Start_x + 7, svBDec_Btn_Start_y + 15);
+  tft.Print_String("-", svBDec_Btn_Start_x + 16, svBDec_Btn_Start_y + 14);
 
   //Increase B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svBInc_Btn_Start_x, svBInc_Btn_Start_y, svBInc_Btn_Stop_x, svBInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svBInc_Btn_Start_x, svBInc_Btn_Start_y, svBInc_Btn_Stop_x, svBInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", svBInc_Btn_Start_x + 7, svBInc_Btn_Start_y + 15);
+  tft.Print_String("+", svBInc_Btn_Start_x + 15, svBInc_Btn_Start_y + 14);
 
   //Amount Button B
   tft.Set_Draw_color(WHITE);
@@ -5325,27 +5666,27 @@ void drawVelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", svBamt_Btn_Start_x + 7, svBamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", svBamt_Btn_Start_x + 9, svBamt_Btn_Start_y + 17);
 
   //Decrease C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svCDec_Btn_Start_x, svCDec_Btn_Start_y, svCDec_Btn_Stop_x, svCDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svCDec_Btn_Start_x, svCDec_Btn_Start_y, svCDec_Btn_Stop_x, svCDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", svCDec_Btn_Start_x + 7, svCDec_Btn_Start_y + 15);
+  tft.Print_String("-", svCDec_Btn_Start_x + 16, svCDec_Btn_Start_y + 14);
 
   //Increase C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(svCInc_Btn_Start_x, svCInc_Btn_Start_y, svCInc_Btn_Stop_x, svCInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(svCInc_Btn_Start_x, svCInc_Btn_Start_y, svCInc_Btn_Stop_x, svCInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", svCInc_Btn_Start_x + 7, svCInc_Btn_Start_y + 15);
+  tft.Print_String("+", svCInc_Btn_Start_x + 15, svCInc_Btn_Start_y + 14);
 
   //Amount Button C
   tft.Set_Draw_color(WHITE);
@@ -5355,27 +5696,27 @@ void drawVelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", svCamt_Btn_Start_x + 7, svCamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", svCamt_Btn_Start_x + 9, svCamt_Btn_Start_y + 17);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -5407,6 +5748,13 @@ void updateVelScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 6;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 7;
+    inputBuilder = mVelocityA;
     drawInputScreen();
     delay(50);
   } 
@@ -5445,6 +5793,13 @@ void updateVelScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 6;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 8;
+    inputBuilder = mVelocityB;
     drawInputScreen();
     delay(50);
   } 
@@ -5482,6 +5837,13 @@ void updateVelScreen() {
     //TODO: Open input screen and get input
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 6;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 9;
+    inputBuilder = mVelocityC;
     activeScreen = 5;
     drawInputScreen();
     delay(50);
@@ -5516,8 +5878,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svADecBtnFlag = true;
+    mVelocityA -= aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svADecBtnFlag) {
@@ -5549,8 +5911,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svBDecBtnFlag = true;
+    mVelocityB -= bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svBDecBtnFlag) {
@@ -5582,8 +5944,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svCDecBtnFlag = true;
+    mVelocityC -= cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svCDecBtnFlag) {
@@ -5615,8 +5977,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svAIncBtnFlag = true;
+    mVelocityA += aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svAIncBtnFlag) {
@@ -5648,8 +6010,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svBIncBtnFlag = true;
+    mVelocityB += bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svBIncBtnFlag) {
@@ -5681,8 +6043,8 @@ void updateVelScreen() {
     
     //Flag the button as pressed
     svCIncBtnFlag = true;
+    mVelocityC += cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(svCIncBtnFlag) {
@@ -5877,7 +6239,13 @@ void updateVelScreen() {
     //Flag the button as pressed
     pnBckBtnFlag = true;
     
-    //TODO:
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -5912,7 +6280,13 @@ void updateVelScreen() {
     //Flag the button as pressed
     pnSaveBtnFlag = true;
     
-    //TODO: 
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";    
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 5;
     drawMachineSettingsScreen();
@@ -5939,99 +6313,99 @@ void drawAccelScreen() {
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Machine Settings Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Acceleration Settings", 240, yPadding);
+  tft.Print_String("Acceleration Settings", 115, yPadding + 12);
 
   //Motor A Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
+  tft.Print_String("Top Clamp Motor (A): ", xPadding, saAVal_Btn_Start_y + 17);
 
   //Motor B Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
+  tft.Print_String("Bottom Clamp Motor (B): ", xPadding, saBVal_Btn_Start_y + 17);
   
   //Motor C Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
+  tft.Print_String("Carriage Motors (C): ", xPadding, saCVal_Btn_Start_y + 17);
 
   //Top Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saAVal_Btn_Start_x, saAVal_Btn_Start_y, saAVal_Btn_Stop_x, saAVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saAVal_Btn_Start_x, saAVal_Btn_Start_y, saAVal_Btn_Stop_x, saAVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mAccelA, saAVal_Btn_Start_x + 17, saAVal_Btn_Start_y + 17);
+  tft.Print_String((String)mAccelA, saAVal_Btn_Start_x + 37, saAVal_Btn_Start_y + 14);
 
   //Bottom Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saBVal_Btn_Start_x, saBVal_Btn_Start_y, saBVal_Btn_Stop_x, saBVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saBVal_Btn_Start_x, saBVal_Btn_Start_y, saBVal_Btn_Stop_x, saBVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mAccelB, saBVal_Btn_Start_x + 17, saBVal_Btn_Start_y + 17);
+  tft.Print_String((String)mAccelB, saBVal_Btn_Start_x + 37, saBVal_Btn_Start_y + 14);
   
   //Frame Carriage Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saCVal_Btn_Start_x, saCVal_Btn_Start_y, saCVal_Btn_Stop_x, saCVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saCVal_Btn_Start_x, saCVal_Btn_Start_y, saCVal_Btn_Stop_x, saCVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mAccelC, saCVal_Btn_Start_x + 17, saCVal_Btn_Start_y + 17);
+  tft.Print_String((String)mAccelC, saCVal_Btn_Start_x + 37, saCVal_Btn_Start_y + 14);
 
   //Motor A Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^2", saAVal_Btn_Stop_x + 5, saAVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^2", saAVal_Btn_Stop_x + 5, saAVal_Btn_Start_y + 17);
 
   //Motor B Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^2", saBVal_Btn_Stop_x + 5, saBVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^2", saBVal_Btn_Stop_x + 5, saBVal_Btn_Start_y + 17);
   
   //Motor C Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^2", saCVal_Btn_Stop_x + 5, saCVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^2", saCVal_Btn_Stop_x + 5, saCVal_Btn_Start_y + 17);
 
   //Decrease A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saADec_Btn_Start_x, saADec_Btn_Start_y, saADec_Btn_Stop_x, saADec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saADec_Btn_Start_x, saADec_Btn_Start_y, saADec_Btn_Stop_x, saADec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", saADec_Btn_Start_x + 7, saADec_Btn_Start_y + 15);
+  tft.Print_String("-", saADec_Btn_Start_x + 16, saADec_Btn_Start_y + 14);
 
   //Increase A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saAInc_Btn_Start_x, saAInc_Btn_Start_y, saAInc_Btn_Stop_x, saAInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saAInc_Btn_Start_x, saAInc_Btn_Start_y, saAInc_Btn_Stop_x, saAInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", saAInc_Btn_Start_x + 7, saAInc_Btn_Start_y + 15);
+  tft.Print_String("+", saAInc_Btn_Start_x + 15, saAInc_Btn_Start_y + 14);
 
   //Amount Button A
   tft.Set_Draw_color(WHITE);
@@ -6041,27 +6415,27 @@ void drawAccelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", saAamt_Btn_Start_x + 7, saAamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", saAamt_Btn_Start_x + 9, saAamt_Btn_Start_y + 17);
 
   //Decrease B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saBDec_Btn_Start_x, saBDec_Btn_Start_y, saBDec_Btn_Stop_x, saBDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saBDec_Btn_Start_x, saBDec_Btn_Start_y, saBDec_Btn_Stop_x, saBDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", saBDec_Btn_Start_x + 7, saBDec_Btn_Start_y + 15);
+  tft.Print_String("-", saBDec_Btn_Start_x + 16, saBDec_Btn_Start_y + 14);
 
   //Increase B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saBInc_Btn_Start_x, saBInc_Btn_Start_y, saBInc_Btn_Stop_x, saBInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saBInc_Btn_Start_x, saBInc_Btn_Start_y, saBInc_Btn_Stop_x, saBInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", saBInc_Btn_Start_x + 7, saBInc_Btn_Start_y + 15);
+  tft.Print_String("+", saBInc_Btn_Start_x + 15, saBInc_Btn_Start_y + 14);
 
   //Amount Button B
   tft.Set_Draw_color(WHITE);
@@ -6071,27 +6445,27 @@ void drawAccelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", saBamt_Btn_Start_x + 7, saBamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", saBamt_Btn_Start_x + 9, saBamt_Btn_Start_y + 17);
 
   //Decrease C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saCDec_Btn_Start_x, saCDec_Btn_Start_y, saCDec_Btn_Stop_x, saCDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saCDec_Btn_Start_x, saCDec_Btn_Start_y, saCDec_Btn_Stop_x, saCDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", saCDec_Btn_Start_x + 7, saCDec_Btn_Start_y + 15);
+  tft.Print_String("-", saCDec_Btn_Start_x + 16, saCDec_Btn_Start_y + 14);
 
   //Increase C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(saCInc_Btn_Start_x, saCInc_Btn_Start_y, saCInc_Btn_Stop_x, saCInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(saCInc_Btn_Start_x, saCInc_Btn_Start_y, saCInc_Btn_Stop_x, saCInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", saCInc_Btn_Start_x + 7, saCInc_Btn_Start_y + 15);
+  tft.Print_String("+", saCInc_Btn_Start_x + 15, saCInc_Btn_Start_y + 14);
 
   //Amount Button C
   tft.Set_Draw_color(WHITE);
@@ -6101,27 +6475,27 @@ void drawAccelScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", saCamt_Btn_Start_x + 7, saCamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", saCamt_Btn_Start_x + 9, saCamt_Btn_Start_y + 17);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -6153,6 +6527,13 @@ void updateAccelScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 7;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 10;
+    inputBuilder = mAccelA;
     drawInputScreen();
     delay(50);
   } 
@@ -6191,6 +6572,13 @@ void updateAccelScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 7;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 11;
+    inputBuilder = mAccelB;
     drawInputScreen();
     delay(50);
   } 
@@ -6228,7 +6616,14 @@ void updateAccelScreen() {
     //TODO: Open input screen and get input
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 7;
-    activeScreen = 5;
+    activeScreen = 5;    
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 12;
+    inputBuilder = mAccelC;
     drawInputScreen();
     delay(50);
   } 
@@ -6262,8 +6657,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saADecBtnFlag = true;
+    mAccelA -= aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saADecBtnFlag) {
@@ -6295,8 +6690,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saBDecBtnFlag = true;
+    mAccelB -= bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saBDecBtnFlag) {
@@ -6328,8 +6723,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saCDecBtnFlag = true;
+    mAccelC -= cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saCDecBtnFlag) {
@@ -6361,8 +6756,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saAIncBtnFlag = true;
+    mAccelA += aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saAIncBtnFlag) {
@@ -6394,8 +6789,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saBIncBtnFlag = true;
+    mAccelB += bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saBIncBtnFlag) {
@@ -6427,8 +6822,8 @@ void updateAccelScreen() {
     
     //Flag the button as pressed
     saCIncBtnFlag = true;
+    mAccelC += cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(saCIncBtnFlag) {
@@ -6624,6 +7019,13 @@ void updateAccelScreen() {
     pnBckBtnFlag = true;
 
     //TODO: Open input screen and get input
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -6659,6 +7061,13 @@ void updateAccelScreen() {
     pnSaveBtnFlag = true;
 
     //TODO:
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -6685,99 +7094,99 @@ void drawJerkScreen() {
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Machine Settings Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Jerk Settings", 240, yPadding);
+  tft.Print_String("Jerk Settings", 170, yPadding + 12);
 
   //Motor A Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
+  tft.Print_String("Top Clamp Motor (A): ", xPadding, sjAVal_Btn_Start_y + 17);
 
   //Motor B Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
+  tft.Print_String("Bottom Clamp Motor (B): ", xPadding, sjBVal_Btn_Start_y + 17);
   
   //Motor C Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
+  tft.Print_String("Carriage Motors (C): ", xPadding, sjCVal_Btn_Start_y + 17);
 
   //Top Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjAVal_Btn_Start_x, sjAVal_Btn_Start_y, sjAVal_Btn_Stop_x, sjAVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjAVal_Btn_Start_x, sjAVal_Btn_Start_y, sjAVal_Btn_Stop_x, sjAVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mJerkA, sjAVal_Btn_Start_x + 17, sjAVal_Btn_Start_y + 17);
+  tft.Print_String((String)mJerkA, sjAVal_Btn_Start_x + 47, sjAVal_Btn_Start_y + 14);
 
   //Bottom Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjBVal_Btn_Start_x, sjBVal_Btn_Start_y, sjBVal_Btn_Stop_x, sjBVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjBVal_Btn_Start_x, sjBVal_Btn_Start_y, sjBVal_Btn_Stop_x, sjBVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mJerkB, sjBVal_Btn_Start_x + 17, sjBVal_Btn_Start_y + 17);
+  tft.Print_String((String)mJerkB, sjBVal_Btn_Start_x + 47, sjBVal_Btn_Start_y + 14);
   
   //Frame Carriage Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjCVal_Btn_Start_x, sjCVal_Btn_Start_y, sjCVal_Btn_Stop_x, sjCVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjCVal_Btn_Start_x, sjCVal_Btn_Start_y, sjCVal_Btn_Stop_x, sjCVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mJerkC, sjCVal_Btn_Start_x + 17, sjCVal_Btn_Start_y + 17);
+  tft.Print_String((String)mJerkC, sjCVal_Btn_Start_x + 47, sjCVal_Btn_Start_y + 14);
 
   //Motor A Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^3", sjAVal_Btn_Stop_x + 5, sjAVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^3", sjAVal_Btn_Stop_x + 5, sjAVal_Btn_Start_y + 17);
 
   //Motor B Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^3", sjBVal_Btn_Stop_x + 5, sjBVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^3", sjBVal_Btn_Stop_x + 5, sjBVal_Btn_Start_y + 17);
   
   //Motor C Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("mm/s^3", sjCVal_Btn_Stop_x + 5, sjCVal_Btn_Start_y + 5);
+  tft.Print_String("mm/s^3", sjCVal_Btn_Stop_x + 5, sjCVal_Btn_Start_y + 17);
 
   //Decrease A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjADec_Btn_Start_x, sjADec_Btn_Start_y, sjADec_Btn_Stop_x, sjADec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjADec_Btn_Start_x, sjADec_Btn_Start_y, sjADec_Btn_Stop_x, sjADec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", sjADec_Btn_Start_x + 7, sjADec_Btn_Start_y + 15);
+  tft.Print_String("-", sjADec_Btn_Start_x + 16, sjADec_Btn_Start_y + 14);
 
   //Increase A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjAInc_Btn_Start_x, sjAInc_Btn_Start_y, sjAInc_Btn_Stop_x, sjAInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjAInc_Btn_Start_x, sjAInc_Btn_Start_y, sjAInc_Btn_Stop_x, sjAInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", sjAInc_Btn_Start_x + 7, sjAInc_Btn_Start_y + 15);
+  tft.Print_String("+", sjAInc_Btn_Start_x + 15, sjAInc_Btn_Start_y + 14);
 
   //Amount Button A
   tft.Set_Draw_color(WHITE);
@@ -6787,27 +7196,27 @@ void drawJerkScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", sjAamt_Btn_Start_x + 7, sjAamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", sjAamt_Btn_Start_x + 9, sjAamt_Btn_Start_y + 17);
 
   //Decrease B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjBDec_Btn_Start_x, sjBDec_Btn_Start_y, sjBDec_Btn_Stop_x, sjBDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjBDec_Btn_Start_x, sjBDec_Btn_Start_y, sjBDec_Btn_Stop_x, sjBDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", sjBDec_Btn_Start_x + 7, sjBDec_Btn_Start_y + 15);
+  tft.Print_String("-", sjBDec_Btn_Start_x + 16, sjBDec_Btn_Start_y + 14);
 
   //Increase B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjBInc_Btn_Start_x, sjBInc_Btn_Start_y, sjBInc_Btn_Stop_x, sjBInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjBInc_Btn_Start_x, sjBInc_Btn_Start_y, sjBInc_Btn_Stop_x, sjBInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", sjBInc_Btn_Start_x + 7, sjBInc_Btn_Start_y + 15);
+  tft.Print_String("+", sjBInc_Btn_Start_x + 15, sjBInc_Btn_Start_y + 14);
 
   //Amount Button B
   tft.Set_Draw_color(WHITE);
@@ -6817,27 +7226,27 @@ void drawJerkScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", sjBamt_Btn_Start_x + 7, sjBamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", sjBamt_Btn_Start_x + 9, sjBamt_Btn_Start_y + 17);
 
   //Decrease C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjCDec_Btn_Start_x, sjCDec_Btn_Start_y, sjCDec_Btn_Stop_x, sjCDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjCDec_Btn_Start_x, sjCDec_Btn_Start_y, sjCDec_Btn_Stop_x, sjCDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", sjCDec_Btn_Start_x + 7, sjCDec_Btn_Start_y + 15);
+  tft.Print_String("-", sjCDec_Btn_Start_x + 16, sjCDec_Btn_Start_y + 14);
 
   //Increase C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(sjCInc_Btn_Start_x, sjCInc_Btn_Start_y, sjCInc_Btn_Stop_x, sjCInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(sjCInc_Btn_Start_x, sjCInc_Btn_Start_y, sjCInc_Btn_Stop_x, sjCInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", sjCInc_Btn_Start_x + 7, sjCInc_Btn_Start_y + 15);
+  tft.Print_String("+", sjCInc_Btn_Start_x + 15, sjCInc_Btn_Start_y + 14);
 
   //Amount Button C
   tft.Set_Draw_color(WHITE);
@@ -6847,27 +7256,27 @@ void drawJerkScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", sjCamt_Btn_Start_x + 7, sjCamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", sjCamt_Btn_Start_x + 9, sjCamt_Btn_Start_y + 17);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -6899,6 +7308,13 @@ void updateJerkScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 8;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 13;
+    inputBuilder = mJerkA;
     drawInputScreen();
     delay(50);
   } 
@@ -6937,6 +7353,13 @@ void updateJerkScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 8;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 14;
+    inputBuilder = mJerkB;
     drawInputScreen();
     delay(50);
   } 
@@ -6975,6 +7398,13 @@ void updateJerkScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 8;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 15;
+    inputBuilder = mJerkC;
     drawInputScreen();
     delay(50);
   } 
@@ -7008,8 +7438,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjADecBtnFlag = true;
+    mJerkA -= aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjADecBtnFlag) {
@@ -7041,8 +7471,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjBDecBtnFlag = true;
+    mJerkB -= bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjBDecBtnFlag) {
@@ -7074,8 +7504,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjCDecBtnFlag = true;
+    mJerkC -= cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjCDecBtnFlag) {
@@ -7107,8 +7537,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjAIncBtnFlag = true;
+    mJerkA += aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjAIncBtnFlag) {
@@ -7140,8 +7570,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjBIncBtnFlag = true;
+    mJerkB += bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjBIncBtnFlag) {
@@ -7173,8 +7603,8 @@ void updateJerkScreen() {
     
     //Flag the button as pressed
     sjCIncBtnFlag = true;
+    mJerkC += cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(sjCIncBtnFlag) {
@@ -7370,6 +7800,13 @@ void updateJerkScreen() {
     pnBckBtnFlag = true;
 
     //TODO: Open input screen and get input
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -7405,6 +7842,13 @@ void updateJerkScreen() {
     pnSaveBtnFlag = true;
 
     //TODO:
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -7431,31 +7875,31 @@ void drawMicrostepScreen() {
 
   //Microstepping Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Microstepping Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Microstepping", 220, yPadding);
+  tft.Print_String("Microstepping Settings", 115, yPadding + 12);
 
   //Motor A uStep Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp", mAuS_Btn_Start_x + 5, mAuS_Btn_Start_y - 15);
+  tft.Print_String("Top Clamp Motor (A)", mAuS_Btn_Start_x - 7, mAuS_Btn_Start_y - 15);
 
   //Motor B uStep Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp", mBuS_Btn_Start_x + 5, mBuS_Btn_Start_y - 15);
+  tft.Print_String("Bottom Clamp Motor (B)", mBuS_Btn_Start_x -10, mBuS_Btn_Start_y - 15);
 
   //Motor C uStep Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage", mCuS_Btn_Start_x + 5, mCuS_Btn_Start_y - 15);
+  tft.Print_String("Carriage Motors (C)", mCuS_Btn_Start_x - 5, mCuS_Btn_Start_y - 15);
 
   //Microstep string values
   String mAuStep;
@@ -7493,7 +7937,7 @@ void drawMicrostepScreen() {
     mBuStep = "1/8";
   }
   else if(mUStepB == 4) {
-    mBuStep = "1/6";
+    mBuStep = "1/16";
   }
 
   //Motor C microstepping value display
@@ -7518,45 +7962,45 @@ void drawMicrostepScreen() {
   tft.Fill_Rectangle(mAuS_Btn_Start_x, mAuS_Btn_Start_y, mAuS_Btn_Stop_x, mAuS_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mAuS_Btn_Start_x, mAuS_Btn_Start_y, mAuS_Btn_Stop_x, mAuS_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String(mAuStep, mAuS_Btn_Start_x + 17, mAuS_Btn_Start_y + 17);
+  tft.Print_String(mAuStep, mAuS_Btn_Start_x + 27, mAuS_Btn_Start_y + 35);
   
   //Motor B uStep Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(mBuS_Btn_Start_x, mBuS_Btn_Start_y, mBuS_Btn_Stop_x, mBuS_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mBuS_Btn_Start_x, mBuS_Btn_Start_y, mBuS_Btn_Stop_x, mBuS_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String(mBuStep, mBuS_Btn_Start_x + 17, mBuS_Btn_Start_y + 17);
+  tft.Print_String(mBuStep, mBuS_Btn_Start_x + 27, mBuS_Btn_Start_y + 35);
 
   //Motor C uStep Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(mCuS_Btn_Start_x, mCuS_Btn_Start_y, mCuS_Btn_Stop_x, mCuS_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mCuS_Btn_Start_x, mCuS_Btn_Start_y, mCuS_Btn_Stop_x, mCuS_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String(mCuStep, mCuS_Btn_Start_x + 17, mCuS_Btn_Start_y + 17);
+  tft.Print_String(mCuStep, mCuS_Btn_Start_x + 27, mCuS_Btn_Start_y + 35);
 
   //Motor A Invert Button
-  tft.Set_Draw_color(WHITE);
+  tft.Set_Draw_color(RED);
   tft.Fill_Rectangle(mAinv_Btn_Start_x, mAinv_Btn_Start_y, mAinv_Btn_Stop_x, mAinv_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mAinv_Btn_Start_x, mAinv_Btn_Start_y, mAinv_Btn_Stop_x, mAinv_Btn_Stop_y);
 
   //Motor B Invert Button
-  tft.Set_Draw_color(WHITE);
+  tft.Set_Draw_color(RED);
   tft.Fill_Rectangle(mBinv_Btn_Start_x, mBinv_Btn_Start_y, mBinv_Btn_Stop_x, mBinv_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mBinv_Btn_Start_x, mBinv_Btn_Start_y, mBinv_Btn_Stop_x, mBinv_Btn_Stop_y);
 
   //Motor C Invert Button
-  tft.Set_Draw_color(WHITE);
+  tft.Set_Draw_color(RED);
   tft.Fill_Rectangle(mCinv_Btn_Start_x, mCinv_Btn_Start_y, mCinv_Btn_Stop_x, mCinv_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(mCinv_Btn_Start_x, mCinv_Btn_Start_y, mCinv_Btn_Stop_x, mCinv_Btn_Stop_y);
@@ -7565,39 +8009,39 @@ void drawMicrostepScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Invert", mAinv_Btn_Stop_x + 5, mAinv_Btn_Start_y  + 25);
+  tft.Print_String("Invert", mAinv_Btn_Stop_x + 5, mAinv_Btn_Start_y  + 9);
 
   //Motor B Invert Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Invert", mBinv_Btn_Stop_x + 5, mAinv_Btn_Start_y + 25);
+  tft.Print_String("Invert", mBinv_Btn_Stop_x + 5, mAinv_Btn_Start_y + 9);
 
   //Motor C Invert Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Invert", mCinv_Btn_Start_x + 5, mCinv_Btn_Start_y + 25);
+  tft.Print_String("Invert", mCinv_Btn_Stop_x + 5, mCinv_Btn_Start_y + 9);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and update changes**/
@@ -7947,99 +8391,99 @@ void drawStepsMMScreen() {
 
   //Machine Settings Title Border
   tft.Set_Draw_color(YELLOW);
-  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 40);
+  tft.Draw_Rectangle(xPadding, yPadding, 480-xPadding, yPadding + 35);
 
   //Machine Settings Title
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm Settings", 240, yPadding);
+  tft.Print_String("Steps/mm Settings", 150, yPadding + 12);
 
   //Motor A Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Top Clamp Motor (A): ", 240, yPadding);
+  tft.Print_String("Top Clamp Motor (A): ", xPadding, ssmmAVal_Btn_Start_y + 17);
 
   //Motor B Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Bottom Clamp Motor (B): ", 240, yPadding);
+  tft.Print_String("Bottom Clamp Motor (B): ", xPadding, ssmmBVal_Btn_Start_y + 17);
   
   //Motor C Title
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Frame Carriage Motors (C): ", 240, yPadding);
+  tft.Print_String("Carriage Motors (C): ", xPadding, ssmmCVal_Btn_Start_y + 17);
 
   //Top Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmAVal_Btn_Start_x, ssmmAVal_Btn_Start_y, ssmmAVal_Btn_Stop_x, ssmmAVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerA, ssmmAVal_Btn_Start_x + 17, ssmmAVal_Btn_Start_y + 17);
+  tft.Print_String((String)mStepsPerA, ssmmAVal_Btn_Start_x + 22, ssmmAVal_Btn_Start_y + 14);
 
   //Bottom Clamp Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmBVal_Btn_Start_x, ssmmBVal_Btn_Start_y, ssmmBVal_Btn_Stop_x, ssmmBVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerB, ssmmBVal_Btn_Start_x + 17, ssmmBVal_Btn_Start_y + 17);
+  tft.Print_String((String)mStepsPerB, ssmmBVal_Btn_Start_x + 22, ssmmBVal_Btn_Start_y + 14);
   
   //Frame Carriage Value Field
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmCVal_Btn_Start_x, ssmmCVal_Btn_Start_y, ssmmCVal_Btn_Stop_x, ssmmCVal_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String((String)mStepsPerC, ssmmCVal_Btn_Start_x + 17, ssmmCVal_Btn_Start_y + 17);
+  tft.Print_String((String)mStepsPerC, ssmmCVal_Btn_Start_x + 22, ssmmCVal_Btn_Start_y + 14);
 
   //Motor A Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+  tft.Print_String("Steps/mm", ssmmAVal_Btn_Stop_x + 5, ssmmAVal_Btn_Start_y + 17);
 
   //Motor B Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+  tft.Print_String("Steps/mm", ssmmBVal_Btn_Stop_x + 5, ssmmBVal_Btn_Start_y + 17);
   
   //Motor C Units Text
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(BLACK);
   tft.Set_Text_colour(YELLOW);
-  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 5);
+  tft.Print_String("Steps/mm", ssmmCVal_Btn_Stop_x + 5, ssmmCVal_Btn_Start_y + 17);
 
   //Decrease A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmADec_Btn_Start_x, ssmmADec_Btn_Start_y, ssmmADec_Btn_Stop_x, ssmmADec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmADec_Btn_Start_x + 7, ssmmADec_Btn_Start_y + 15);
+  tft.Print_String("-", ssmmADec_Btn_Start_x + 16, ssmmADec_Btn_Start_y + 14);
 
   //Increase A Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmAInc_Btn_Start_x, ssmmAInc_Btn_Start_y, ssmmAInc_Btn_Stop_x, ssmmAInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmAInc_Btn_Start_x + 7, ssmmAInc_Btn_Start_y + 15);
+  tft.Print_String("+", ssmmAInc_Btn_Start_x + 15, ssmmAInc_Btn_Start_y + 14);
 
   //Amount Button A
   tft.Set_Draw_color(WHITE);
@@ -8049,27 +8493,27 @@ void drawStepsMMScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmAamt_Btn_Start_x + 7, ssmmAamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", ssmmAamt_Btn_Start_x + 9, ssmmAamt_Btn_Start_y + 17);
 
   //Decrease B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmBDec_Btn_Start_x, ssmmBDec_Btn_Start_y, ssmmBDec_Btn_Stop_x, ssmmBDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmBDec_Btn_Start_x + 7, ssmmBDec_Btn_Start_y + 15);
+  tft.Print_String("-", ssmmBDec_Btn_Start_x + 16, ssmmBDec_Btn_Start_y + 14);
 
   //Increase B Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmBInc_Btn_Start_x, ssmmBInc_Btn_Start_y, ssmmBInc_Btn_Stop_x, ssmmBInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmBInc_Btn_Start_x + 7, ssmmBInc_Btn_Start_y + 15);
+  tft.Print_String("+", ssmmBInc_Btn_Start_x + 15, ssmmBInc_Btn_Start_y + 14);
 
   //Amount Button B
   tft.Set_Draw_color(WHITE);
@@ -8079,27 +8523,27 @@ void drawStepsMMScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmBamt_Btn_Start_x + 7, ssmmBamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", ssmmBamt_Btn_Start_x + 9, ssmmBamt_Btn_Start_y + 17);
 
   //Decrease C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmCDec_Btn_Start_x, ssmmCDec_Btn_Start_y, ssmmCDec_Btn_Stop_x, ssmmCDec_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("-", ssmmCDec_Btn_Start_x + 7, ssmmCDec_Btn_Start_y + 15);
+  tft.Print_String("-", ssmmCDec_Btn_Start_x + 16, ssmmCDec_Btn_Start_y + 14);
 
   //Increase C Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(ssmmCInc_Btn_Start_x, ssmmCInc_Btn_Start_y, ssmmCInc_Btn_Stop_x, ssmmCInc_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("+", ssmmCInc_Btn_Start_x + 7, ssmmCInc_Btn_Start_y + 15);
+  tft.Print_String("+", ssmmCInc_Btn_Start_x + 15, ssmmCInc_Btn_Start_y + 14);
 
   //Amount Button C
   tft.Set_Draw_color(WHITE);
@@ -8109,27 +8553,27 @@ void drawStepsMMScreen() {
   tft.Set_Text_Size(1);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("0.01", ssmmCamt_Btn_Start_x + 7, ssmmCamt_Btn_Start_y + 15);
+  tft.Print_String("0.1", ssmmCamt_Btn_Start_x + 9, ssmmCamt_Btn_Start_y + 17);
 
   //Back Button
   tft.Set_Draw_color(WHITE);
   tft.Fill_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnBck_Btn_Start_x, pnBck_Btn_Start_y, pnBck_Btn_Stop_x, pnBck_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(WHITE);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 17);
+  tft.Print_String("Back", pnBck_Btn_Start_x + 17, pnBck_Btn_Start_y + 14);
 
   //Save Button
   tft.Set_Draw_color(GREEN);
   tft.Fill_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
   tft.Set_Draw_color(GRAY);
   tft.Draw_Rectangle(pnSave_Btn_Start_x, pnSave_Btn_Start_y, pnSave_Btn_Stop_x, pnSave_Btn_Stop_y);
-  tft.Set_Text_Size(1);
+  tft.Set_Text_Size(2);
   tft.Set_Text_Back_colour(GREEN);
   tft.Set_Text_colour(BLACK);
-  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 17);
+  tft.Print_String("Save", pnSave_Btn_Start_x + 17, pnSave_Btn_Start_y + 14);
 }
 
 /**Get touch readings and redraw changes**/
@@ -8161,6 +8605,13 @@ void updateStepsMMScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 10;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 19;
+    inputBuilder = mStepsPerA;
     drawInputScreen();
     delay(50);
   } 
@@ -8199,6 +8650,13 @@ void updateStepsMMScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 10;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 20;
+    inputBuilder = mStepsPerB;
     drawInputScreen();
     delay(50);
   } 
@@ -8237,6 +8695,13 @@ void updateStepsMMScreen() {
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     prevActiveScreen = 10;
     activeScreen = 5;
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 21;
+    inputBuilder = mStepsPerC;
     drawInputScreen();
     delay(50);
   } 
@@ -8270,8 +8735,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmADecBtnFlag = true;
+    mStepsPerA -= aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmADecBtnFlag) {
@@ -8303,8 +8768,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmBDecBtnFlag = true;
+    mStepsPerB -= bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmBDecBtnFlag) {
@@ -8336,8 +8801,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmCDecBtnFlag = true;
+    mStepsPerC -= cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmCDecBtnFlag) {
@@ -8369,8 +8834,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmAIncBtnFlag = true;
+    mStepsPerA += aAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmAIncBtnFlag) {
@@ -8402,8 +8867,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmBIncBtnFlag = true;
+    mStepsPerB += bAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmBIncBtnFlag) {
@@ -8435,8 +8900,8 @@ void updateStepsMMScreen() {
     
     //Flag the button as pressed
     ssmmCIncBtnFlag = true;
+    mStepsPerC += cAmt;
     delay(50);
-    //TODO:
   } 
   //If the button is flagged as pressed but no longer being pressed
   else if(ssmmCIncBtnFlag) {
@@ -8632,6 +9097,13 @@ void updateStepsMMScreen() {
     pnBckBtnFlag = true;
    
     //TODO:
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
@@ -8667,6 +9139,13 @@ void updateStepsMMScreen() {
     pnSaveBtnFlag = true;
     
     //TODO:
+    //0=none, 1=profileName, 2=tClampDist, 3=bClampDist, 4=hDist1, 5=hDist2, 6=hDist3
+    //7=mVelocityA, 8=mVelocityB, 9=mVelocityC, 10=mAccelA, 11=mAccelB, 12=mAccelC
+    //13=mJerkA, 14=mJerkB, 15=mJerkC, 16=mUStepA, 17=mUStepB, 18=mUStepC
+    //19=mStepsPerA, 20=mStepsPerB, 21=mStepsPerC, 22=homeOffsetT, 23=homeOffsetB
+    //24=homeOffsetClampT, 25=homeOffsetClampB
+    varInputRegister = 0;
+    inputBuilder = "";
     //0=main, 1=load, 2=new, 3=edit, 4=settings, 5=input, 6=vel, 7=accel, 8=jerk, 9=microstep, 10=step/mm
     activeScreen = 4;
     drawMachineSettingsScreen();
