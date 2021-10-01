@@ -34,15 +34,15 @@
 #define WHITE   0xFFFF
 
 //Stepper Motor Connections
-#define pulseA  23
-#define pulseB  25
-#define pulseC  27
-#define dirA    22
-#define dirB    24
-#define dirC    26
+#define pulseA  22
+#define pulseB  24
+#define pulseC  26
+#define dirA    28
+#define dirB    30
+#define dirC    27
 
 //Stepper Motor Enabling
-#define ENABLE_MOTORS 53
+#define ENABLE_MOTORS 29
 
 //Stepper Motor Settings
   /*LOW LOW LOW   - Full Step
@@ -50,18 +50,18 @@
     LOW HIGH LOW  - Quarter Step
     HIGH HIGH LOW - Eighth Step
     HIGH HIGH HIGH - Sixteenth Step*/
-#define MS1A 38
-#define MS2A 40
-#define MS3A 42     
-#define MS1B 30
-#define MS2B 32
-#define MS3B 34
-#define MS1C 39
-#define MS2C 41
-#define MS3C 43
-#define MS1D 31
-#define MS2D 33
-#define MS3D 35
+#define MS1A 32
+#define MS2A 34
+#define MS3A 36     
+#define MS1B 38
+#define MS2B 40
+#define MS3B 42
+#define MS1C 33
+#define MS2C 35
+#define MS3C 37
+#define MS1D 39
+#define MS2D 41
+#define MS3D 43
 
 //Endstops
 #define xEndstop 45
